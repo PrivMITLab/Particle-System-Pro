@@ -1,0 +1,1064 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>3D Particles</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { 
+            background: #000; 
+            overflow: hidden; 
+            font-family: -apple-system, sans-serif;
+        }
+        canvas { display: block; }
+        
+        /* Branding */
+        .brand {
+            position: fixed;
+            bottom: 15px;
+            right: 15px;
+            z-index: 100;
+        }
+        .brand a {
+            color: rgba(255,255,255,0.25);
+            text-decoration: none;
+            font-size: 11px;
+            letter-spacing: 0.5px;
+            transition: color 0.3s;
+        }
+        .brand a:hover { color: rgba(255,255,255,0.6); }
+        
+        /* Input */
+        .input-wrap {
+            position: fixed;
+            bottom: 30px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 10;
+            width: 90%;
+            max-width: 400px;
+        }
+        input {
+            width: 100%;
+            padding: 14px 20px;
+            background: rgba(255,255,255,0.03);
+            border: 1px solid rgba(255,255,255,0.08);
+            border-radius: 25px;
+            color: rgba(255,255,255,0.7);
+            font-size: 14px;
+            outline: none;
+            text-align: center;
+        }
+        input::placeholder { color: rgba(255,255,255,0.15); }
+        input:focus { border-color: rgba(255,255,255,0.2); }
+        
+        /* Settings Toggle */
+        .settings-toggle {
+            position: fixed;
+            bottom: 30px;
+            left: 15px;
+            width: 40px;
+            height: 40px;
+            background: rgba(255,255,255,0.03);
+            border: 1px solid rgba(255,255,255,0.08);
+            border-radius: 50%;
+            color: rgba(255,255,255,0.4);
+            font-size: 18px;
+            cursor: pointer;
+            z-index: 100;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.3s;
+        }
+        .settings-toggle:hover { 
+            background: rgba(255,255,255,0.06);
+            color: rgba(255,255,255,0.7);
+        }
+        
+        /* Settings Panel */
+        .settings-panel {
+            position: fixed;
+            bottom: 80px;
+            left: 15px;
+            background: rgba(10,10,10,0.95);
+            border: 1px solid rgba(255,255,255,0.06);
+            border-radius: 15px;
+            padding: 20px;
+            z-index: 99;
+            width: 280px;
+            max-height: 70vh;
+            overflow-y: auto;
+            transform: translateY(20px);
+            opacity: 0;
+            pointer-events: none;
+            transition: all 0.3s ease;
+        }
+        .settings-panel.active {
+            transform: translateY(0);
+            opacity: 1;
+            pointer-events: all;
+        }
+        .settings-panel::-webkit-scrollbar { width: 4px; }
+        .settings-panel::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 2px; }
+        
+        .section { margin-bottom: 18px; }
+        .section:last-child { margin-bottom: 0; }
+        .section-title {
+            color: rgba(255,255,255,0.25);
+            font-size: 9px;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+            margin-bottom: 10px;
+        }
+        
+        /* Shapes */
+        .shapes { display: flex; flex-wrap: wrap; gap: 6px; }
+        .shape-btn {
+            padding: 6px 12px;
+            background: rgba(255,255,255,0.03);
+            border: 1px solid rgba(255,255,255,0.06);
+            border-radius: 15px;
+            color: rgba(255,255,255,0.35);
+            font-size: 11px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .shape-btn:hover { background: rgba(255,255,255,0.06); }
+        .shape-btn.active { 
+            background: rgba(255,255,255,0.08);
+            color: rgba(255,255,255,0.8);
+            border-color: rgba(255,255,255,0.15);
+        }
+        
+        /* Colors */
+        .colors { display: flex; gap: 8px; flex-wrap: wrap; }
+        .color-dot {
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            cursor: pointer;
+            border: 2px solid transparent;
+            transition: all 0.2s;
+        }
+        .color-dot:hover { transform: scale(1.15); }
+        .color-dot.active { border-color: rgba(255,255,255,0.5); }
+        
+        /* Sliders */
+        .slider-row {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 10px;
+        }
+        .slider-label {
+            color: rgba(255,255,255,0.35);
+            font-size: 11px;
+            width: 70px;
+        }
+        .slider-val {
+            color: rgba(255,255,255,0.25);
+            font-size: 10px;
+            width: 30px;
+            text-align: right;
+        }
+        input[type="range"] {
+            flex: 1;
+            -webkit-appearance: none;
+            height: 3px;
+            background: rgba(255,255,255,0.1);
+            border-radius: 2px;
+            outline: none;
+        }
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 12px;
+            height: 12px;
+            background: rgba(255,255,255,0.4);
+            border-radius: 50%;
+            cursor: pointer;
+        }
+        
+        /* Toggles */
+        .toggle-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 8px;
+        }
+        .toggle-label { color: rgba(255,255,255,0.35); font-size: 11px; }
+        .toggle {
+            width: 36px;
+            height: 20px;
+            background: rgba(255,255,255,0.1);
+            border-radius: 10px;
+            cursor: pointer;
+            position: relative;
+            transition: background 0.3s;
+        }
+        .toggle.active { background: rgba(255,255,255,0.25); }
+        .toggle::after {
+            content: '';
+            position: absolute;
+            width: 16px;
+            height: 16px;
+            background: rgba(255,255,255,0.6);
+            border-radius: 50%;
+            top: 2px;
+            left: 2px;
+            transition: transform 0.3s;
+        }
+        .toggle.active::after { transform: translateX(16px); }
+        
+        /* Buttons */
+        .btn-row { display: flex; gap: 8px; flex-wrap: wrap; }
+        .action-btn {
+            padding: 8px 14px;
+            background: rgba(255,255,255,0.03);
+            border: 1px solid rgba(255,255,255,0.06);
+            border-radius: 8px;
+            color: rgba(255,255,255,0.4);
+            font-size: 11px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .action-btn:hover {
+            background: rgba(255,255,255,0.06);
+            color: rgba(255,255,255,0.7);
+        }
+        
+        /* Particle Types */
+        .types { display: flex; gap: 6px; }
+        .type-btn {
+            flex: 1;
+            padding: 8px;
+            background: rgba(255,255,255,0.03);
+            border: 1px solid rgba(255,255,255,0.06);
+            border-radius: 8px;
+            color: rgba(255,255,255,0.35);
+            font-size: 10px;
+            cursor: pointer;
+            text-align: center;
+            transition: all 0.2s;
+        }
+        .type-btn:hover { background: rgba(255,255,255,0.06); }
+        .type-btn.active { 
+            background: rgba(255,255,255,0.08);
+            color: rgba(255,255,255,0.8);
+        }
+        
+        /* Color Pickers */
+        .color-pickers { display: flex; gap: 8px; }
+        .color-pick {
+            flex: 1;
+            height: 30px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            background: transparent;
+        }
+        .color-pick::-webkit-color-swatch { border-radius: 8px; border: none; }
+        .color-pick::-webkit-color-swatch-wrapper { padding: 0; }
+        
+        /* Stats */
+        .stats {
+            position: fixed;
+            top: 15px;
+            left: 15px;
+            color: rgba(255,255,255,0.15);
+            font-size: 10px;
+            letter-spacing: 1px;
+            z-index: 10;
+        }
+        
+        /* Audio indicator */
+        .audio-indicator {
+            position: fixed;
+            top: 15px;
+            right: 15px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            z-index: 10;
+        }
+        .audio-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: rgba(255,255,255,0.15);
+            transition: background 0.2s;
+        }
+        .audio-dot.active { background: #0f4; }
+        .audio-label {
+            color: rgba(255,255,255,0.2);
+            font-size: 10px;
+        }
+        
+        @media (max-width: 600px) {
+            .settings-panel { width: calc(100vw - 30px); max-width: 280px; }
+        }
+    </style>
+</head>
+<body>
+
+<div class="stats" id="stats">40K</div>
+
+<div class="audio-indicator">
+    <div class="audio-dot" id="audioDot"></div>
+    <span class="audio-label">Audio</span>
+</div>
+
+<div class="input-wrap">
+    <input type="text" id="textInput" maxlength="15" placeholder="type to morph...">
+</div>
+
+<button class="settings-toggle" id="settingsToggle">⚙</button>
+
+<div class="settings-panel" id="settingsPanel">
+    <!-- Shapes -->
+    <div class="section">
+        <div class="section-title">Shapes</div>
+        <div class="shapes">
+            <button class="shape-btn active" data-shape="heart">♥ Heart</button>
+            <button class="shape-btn" data-shape="sphere">◉ Sphere</button>
+            <button class="shape-btn" data-shape="torus">◎ Torus</button>
+            <button class="shape-btn" data-shape="galaxy">✦ Galaxy</button>
+            <button class="shape-btn" data-shape="cube">⬡ Cube</button>
+            <button class="shape-btn" data-shape="wave">〜 Wave</button>
+            <button class="shape-btn" data-shape="star">★ Star</button>
+            <button class="shape-btn" data-shape="spiral">⊛ Spiral</button>
+        </div>
+    </div>
+    
+    <!-- Colors -->
+    <div class="section">
+        <div class="section-title">Colors</div>
+        <div class="colors">
+            <div class="color-dot active" data-theme="fire" style="background:linear-gradient(135deg,#ff0844,#ffb199)"></div>
+            <div class="color-dot" data-theme="ocean" style="background:linear-gradient(135deg,#00d4ff,#0066ff)"></div>
+            <div class="color-dot" data-theme="aurora" style="background:linear-gradient(135deg,#00ffaa,#aa00ff)"></div>
+            <div class="color-dot" data-theme="sunset" style="background:linear-gradient(135deg,#ff6600,#ff00cc)"></div>
+            <div class="color-dot" data-theme="cyber" style="background:linear-gradient(135deg,#00ffff,#ff00ff)"></div>
+            <div class="color-dot" data-theme="gold" style="background:linear-gradient(135deg,#ffd700,#ff8c00)"></div>
+            <div class="color-dot" data-theme="candy" style="background:linear-gradient(135deg,#ff77ff,#77ffdd)"></div>
+            <div class="color-dot" data-theme="rainbow" style="background:conic-gradient(#f00,#ff0,#0f0,#0ff,#00f,#f0f,#f00)"></div>
+        </div>
+    </div>
+    
+    <!-- Particle Types -->
+    <div class="section">
+        <div class="section-title">Render Type</div>
+        <div class="types">
+            <button class="type-btn active" data-type="dots">● Dots</button>
+            <button class="type-btn" data-type="lines">╱ Lines</button>
+            <button class="type-btn" data-type="triangles">△ Triangles</button>
+        </div>
+    </div>
+    
+    <!-- Sliders -->
+    <div class="section">
+        <div class="section-title">Settings</div>
+        <div class="slider-row">
+            <span class="slider-label">Speed</span>
+            <input type="range" id="speedSlider" min="0" max="100" value="50">
+            <span class="slider-val" id="speedVal">50</span>
+        </div>
+        <div class="slider-row">
+            <span class="slider-label">Size</span>
+            <input type="range" id="sizeSlider" min="1" max="30" value="10">
+            <span class="slider-val" id="sizeVal">10</span>
+        </div>
+        <div class="slider-row">
+            <span class="slider-label">Spread</span>
+            <input type="range" id="spreadSlider" min="20" max="200" value="100">
+            <span class="slider-val" id="spreadVal">100</span>
+        </div>
+        <div class="slider-row">
+            <span class="slider-label">Mouse</span>
+            <input type="range" id="mouseSlider" min="0" max="100" value="50">
+            <span class="slider-val" id="mouseVal">50</span>
+        </div>
+        <div class="slider-row">
+            <span class="slider-label">Gravity</span>
+            <input type="range" id="gravitySlider" min="-100" max="100" value="0">
+            <span class="slider-val" id="gravityVal">0</span>
+        </div>
+        <div class="slider-row">
+            <span class="slider-label">Trails</span>
+            <input type="range" id="trailsSlider" min="0" max="100" value="0">
+            <span class="slider-val" id="trailsVal">0</span>
+        </div>
+        <div class="slider-row">
+            <span class="slider-label">Connect</span>
+            <input type="range" id="connectSlider" min="0" max="50" value="0">
+            <span class="slider-val" id="connectVal">0</span>
+        </div>
+        <div class="slider-row">
+            <span class="slider-label">Lifespan</span>
+            <input type="range" id="lifeSlider" min="0" max="100" value="0">
+            <span class="slider-val" id="lifeVal">0</span>
+        </div>
+    </div>
+    
+    <!-- Toggles -->
+    <div class="section">
+        <div class="section-title">Options</div>
+        <div class="toggle-row">
+            <span class="toggle-label">Auto Rotate</span>
+            <div class="toggle active" id="rotateToggle"></div>
+        </div>
+        <div class="toggle-row">
+            <span class="toggle-label">Mouse Interact</span>
+            <div class="toggle active" id="mouseToggle"></div>
+        </div>
+        <div class="toggle-row">
+            <span class="toggle-label">Ripple Wave</span>
+            <div class="toggle active" id="rippleToggle"></div>
+        </div>
+        <div class="toggle-row">
+            <span class="toggle-label">Background Stars</span>
+            <div class="toggle active" id="starsToggle"></div>
+        </div>
+        <div class="toggle-row">
+            <span class="toggle-label">Audio Visualizer</span>
+            <div class="toggle" id="audioToggle"></div>
+        </div>
+    </div>
+    
+    <!-- Color Mixer -->
+    <div class="section">
+        <div class="section-title">Custom Colors</div>
+        <div class="color-pickers">
+            <input type="color" class="color-pick" id="color1" value="#ff0844">
+            <input type="color" class="color-pick" id="color2" value="#ffb199">
+            <input type="color" class="color-pick" id="color3" value="#ffd700">
+        </div>
+    </div>
+    
+    <!-- Presets -->
+    <div class="section">
+        <div class="section-title">Presets</div>
+        <div class="btn-row">
+            <button class="action-btn" data-preset="default">Default</button>
+            <button class="action-btn" data-preset="neon">Neon</button>
+            <button class="action-btn" data-preset="calm">Calm</button>
+            <button class="action-btn" data-preset="chaos">Chaos</button>
+        </div>
+    </div>
+    
+    <!-- Actions -->
+    <div class="section">
+        <div class="section-title">Actions</div>
+        <div class="btn-row">
+            <button class="action-btn" id="explodeBtn">💥 Explode</button>
+            <button class="action-btn" id="screenshotBtn">📷 Save</button>
+            <button class="action-btn" id="randomBtn">🎲 Random</button>
+            <button class="action-btn" id="resetBtn">↺ Reset</button>
+        </div>
+    </div>
+    
+    <!-- Export/Import -->
+    <div class="section">
+        <div class="section-title">Data</div>
+        <div class="btn-row">
+            <button class="action-btn" id="exportBtn">📤 Export</button>
+            <button class="action-btn" id="importBtn">📥 Import</button>
+        </div>
+    </div>
+</div>
+
+<div class="brand">
+    <a href="https://github.com/SudhirDevOps1" target="_blank">@SudhirDevOps1</a>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+const N = 40000;
+let scene, camera, renderer, particles, bgStars, trailMesh;
+let targets = new Float32Array(N * 3);
+let velocities = new Float32Array(N * 3);
+let seeds = new Float32Array(N);
+let ages = new Float32Array(N);
+let mouse = { x: -9999, y: -9999 };
+let drag = { active: false, x: 0, y: 0 };
+let rotY = 0, rotX = 0, autoRot = 0;
+let textMode = false, t = 0;
+let audioCtx, analyser, audioData, audioLevel = 0;
+
+// Settings
+let settings = {
+    shape: 'heart', theme: 'fire', type: 'dots',
+    speed: 50, size: 10, spread: 100, mouse: 50,
+    gravity: 0, trails: 0, connect: 0, life: 0,
+    rotate: true, mouseOn: true, ripple: true, stars: true, audio: false
+};
+
+const THEMES = {
+    fire: [[1,0.03,0.27],[1,0.69,0.6],[1,0.3,0]],
+    ocean: [[0,0.83,1],[0,0.4,1],[0,1,0.8]],
+    aurora: [[0,1,0.67],[0.67,0,1],[0,1,1]],
+    sunset: [[1,0.4,0],[1,0,0.8],[1,0.6,0.2]],
+    cyber: [[0,1,1],[1,0,1],[0.5,0,1]],
+    gold: [[1,0.84,0],[1,0.55,0],[1,0.9,0.3]],
+    candy: [[1,0.47,1],[0.47,1,0.87],[1,0.7,0.9]],
+    rainbow: [[1,0,0],[1,1,0],[0,1,0],[0,0,1],[1,0,1]]
+};
+
+const textCanvas = document.createElement('canvas');
+const textCtx = textCanvas.getContext('2d');
+textCanvas.width = 800;
+textCanvas.height = 300;
+
+function getShapePoint(shape) {
+    const s = settings.spread / 100;
+    switch(shape) {
+        case 'heart': {
+            const u = Math.random() * Math.PI * 2;
+            const v = Math.acos(Math.random() * 2 - 1);
+            return [
+                16 * Math.pow(Math.sin(u), 3) * Math.sin(v) * 0.75 * s,
+                (13*Math.cos(u)-5*Math.cos(2*u)-2*Math.cos(3*u)-Math.cos(4*u)) * Math.sin(v) * 0.75 * s,
+                10 * Math.cos(v) * 0.75 * s
+            ];
+        }
+        case 'sphere': {
+            const th = Math.random() * Math.PI * 2;
+            const ph = Math.acos(Math.random() * 2 - 1);
+            const r = 11 * s;
+            return [r*Math.sin(ph)*Math.cos(th), r*Math.sin(ph)*Math.sin(th), r*Math.cos(ph)];
+        }
+        case 'torus': {
+            const R = 9*s, r = 3.5*s;
+            const u = Math.random() * Math.PI * 2;
+            const v = Math.random() * Math.PI * 2;
+            return [(R+r*Math.cos(v))*Math.cos(u), (R+r*Math.cos(v))*Math.sin(u), r*Math.sin(v)];
+        }
+        case 'galaxy': {
+            const arm = Math.floor(Math.random() * 4);
+            const base = (arm / 4) * Math.PI * 2;
+            const dist = Math.pow(Math.random(), 0.45) * 14 * s;
+            const angle = base + dist * 0.5 + (Math.random() - 0.5) * 0.65;
+            return [dist*Math.cos(angle), (Math.random()-0.5)*2*s/(1+dist*0.25), dist*Math.sin(angle)];
+        }
+        case 'cube': {
+            const sz = 9 * s;
+            const face = Math.floor(Math.random() * 6);
+            const a = (Math.random()-0.5)*2*sz, b = (Math.random()-0.5)*2*sz;
+            if(face===0) return [sz,a,b]; if(face===1) return [-sz,a,b];
+            if(face===2) return [a,sz,b]; if(face===3) return [a,-sz,b];
+            if(face===4) return [a,b,sz]; return [a,b,-sz];
+        }
+        case 'wave': {
+            const wx = (Math.random()-0.5)*28*s;
+            const wz = (Math.random()-0.5)*28*s;
+            return [wx, Math.sin(wx*0.4)*Math.cos(wz*0.4)*5*s, wz];
+        }
+        case 'star': {
+            const angle = Math.random() * Math.PI * 2;
+            const arms = 5;
+            const armAngle = Math.floor(Math.random() * arms) * (Math.PI * 2 / arms);
+            const dist = (0.3 + Math.random() * 0.7) * 12 * s;
+            const spread = (Math.random() - 0.5) * 2 * s;
+            return [
+                dist * Math.cos(armAngle + spread * 0.1),
+                (Math.random() - 0.5) * 2 * s,
+                dist * Math.sin(armAngle + spread * 0.1)
+            ];
+        }
+        case 'spiral': {
+            const frac = Math.random();
+            const angle = frac * Math.PI * 8;
+            const dist = frac * 12 * s;
+            const y = (frac - 0.5) * 20 * s;
+            return [dist*Math.cos(angle), y, dist*Math.sin(angle)];
+        }
+        default: return [0,0,0];
+    }
+}
+
+function sampleText(text) {
+    if (!text || !text.trim()) return null;
+    textCtx.clearRect(0, 0, textCanvas.width, textCanvas.height);
+    textCtx.fillStyle = '#fff';
+    const fs = text.length > 10 ? 60 : text.length > 5 ? 80 : 100;
+    textCtx.font = `900 ${fs}px Arial, sans-serif`;
+    textCtx.textAlign = 'center';
+    textCtx.textBaseline = 'middle';
+    textCtx.fillText(text, textCanvas.width/2, textCanvas.height/2);
+    const data = textCtx.getImageData(0, 0, textCanvas.width, textCanvas.height).data;
+    const pts = [];
+    for (let y = 0; y < textCanvas.height; y += 2) {
+        for (let x = 0; x < textCanvas.width; x += 2) {
+            if (data[(y * textCanvas.width + x) * 4 + 3] > 128) {
+                pts.push([(x-textCanvas.width/2)*0.12, -(y-textCanvas.height/2)*0.12, (Math.random()-0.5)*1]);
+            }
+        }
+    }
+    return pts.length ? pts : null;
+}
+
+function setTargets(text) {
+    const pts = sampleText(text);
+    textMode = !!pts;
+    for (let i = 0; i < N; i++) {
+        if (textMode) {
+            const p = pts[i % pts.length];
+            targets[i*3] = p[0] + (Math.random()-0.5)*0.1;
+            targets[i*3+1] = p[1] + (Math.random()-0.5)*0.1;
+            targets[i*3+2] = p[2] + (Math.random()-0.5)*0.1;
+        } else {
+            const p = getShapePoint(settings.shape);
+            targets[i*3] = p[0] + (Math.random()-0.5)*0.3;
+            targets[i*3+1] = p[1] + (Math.random()-0.5)*0.3;
+            targets[i*3+2] = p[2] + (Math.random()-0.5)*0.3;
+        }
+    }
+}
+
+function applyColors() {
+    const pal = THEMES[settings.theme];
+    const col = particles.geometry.attributes.color.array;
+    for (let i = 0; i < N; i++) {
+        const c = pal[Math.floor(Math.random() * pal.length)];
+        col[i*3] = c[0]; col[i*3+1] = c[1]; col[i*3+2] = c[2];
+    }
+    particles.geometry.attributes.color.needsUpdate = true;
+}
+
+function init() {
+    scene = new THREE.Scene();
+    camera = new THREE.PerspectiveCamera(65, innerWidth/innerHeight, 0.1, 800);
+    camera.position.z = 35;
+    
+    renderer = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true });
+    renderer.setSize(innerWidth, innerHeight);
+    renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+    renderer.setClearColor(0x000000);
+    document.body.appendChild(renderer.domElement);
+    
+    // Main particles
+    const geo = new THREE.BufferGeometry();
+    const pos = new Float32Array(N * 3);
+    const col = new Float32Array(N * 3);
+    const pal = THEMES[settings.theme];
+    
+    for (let i = 0; i < N; i++) {
+        pos[i*3] = (Math.random()-0.5)*200;
+        pos[i*3+1] = (Math.random()-0.5)*200;
+        pos[i*3+2] = (Math.random()-0.5)*200;
+        const c = pal[Math.floor(Math.random() * pal.length)];
+        col[i*3] = c[0]; col[i*3+1] = c[1]; col[i*3+2] = c[2];
+        seeds[i] = Math.random();
+        ages[i] = Math.random() * 100;
+    }
+    
+    geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+    geo.setAttribute('color', new THREE.BufferAttribute(col, 3));
+    
+    particles = new THREE.Points(geo, new THREE.PointsMaterial({
+        size: 0.15,
+        vertexColors: true,
+        transparent: true,
+        opacity: 0.9,
+        blending: THREE.AdditiveBlending
+    }));
+    scene.add(particles);
+    
+    // Background stars
+    const bgGeo = new THREE.BufferGeometry();
+    const bgPos = new Float32Array(2000 * 3);
+    const bgCol = new Float32Array(2000 * 3);
+    for (let i = 0; i < 2000; i++) {
+        bgPos[i*3] = (Math.random()-0.5)*500;
+        bgPos[i*3+1] = (Math.random()-0.5)*500;
+        bgPos[i*3+2] = (Math.random()-0.5)*500;
+        const b = 0.1 + Math.random() * 0.15;
+        bgCol[i*3] = b; bgCol[i*3+1] = b; bgCol[i*3+2] = b * 1.2;
+    }
+    bgGeo.setAttribute('position', new THREE.BufferAttribute(bgPos, 3));
+    bgGeo.setAttribute('color', new THREE.BufferAttribute(bgCol, 3));
+    bgStars = new THREE.Points(bgGeo, new THREE.PointsMaterial({
+        size: 0.3, vertexColors: true, transparent: true, opacity: 0.4
+    }));
+    scene.add(bgStars);
+    
+    setTargets('');
+    setupEvents();
+    animate();
+}
+
+function setupEvents() {
+    window.addEventListener('resize', () => {
+        camera.aspect = innerWidth / innerHeight;
+        camera.updateProjectionMatrix();
+        renderer.setSize(innerWidth, innerHeight);
+    });
+    
+    window.addEventListener('mousemove', e => {
+        mouse.x = (e.clientX / innerWidth) * 2 - 1;
+        mouse.y = -(e.clientY / innerHeight) * 2 + 1;
+        if (drag.active) {
+            rotY += (e.clientX - drag.x) * 0.005;
+            rotX += (e.clientY - drag.y) * 0.005;
+            rotX = Math.max(-1.2, Math.min(1.2, rotX));
+            drag.x = e.clientX; drag.y = e.clientY;
+        }
+    });
+    
+    window.addEventListener('mousedown', e => {
+        drag.active = true; drag.x = e.clientX; drag.y = e.clientY;
+    });
+    window.addEventListener('mouseup', () => drag.active = false);
+    
+    window.addEventListener('touchstart', e => {
+        if (e.touches.length === 1) {
+            drag.active = true;
+            drag.x = e.touches[0].clientX;
+            drag.y = e.touches[0].clientY;
+        }
+    }, { passive: true });
+    
+    window.addEventListener('touchmove', e => {
+        if (e.touches.length === 1 && drag.active) {
+            rotY += (e.touches[0].clientX - drag.x) * 0.005;
+            rotX += (e.touches[0].clientY - drag.y) * 0.005;
+            rotX = Math.max(-1.2, Math.min(1.2, rotX));
+            drag.x = e.touches[0].clientX;
+            drag.y = e.touches[0].clientY;
+        }
+    }, { passive: true });
+    
+    window.addEventListener('touchend', () => drag.active = false);
+    
+    // Input
+    document.getElementById('textInput').addEventListener('input', e => setTargets(e.target.value));
+    
+    // Settings toggle
+    document.getElementById('settingsToggle').addEventListener('click', () => {
+        document.getElementById('settingsPanel').classList.toggle('active');
+    });
+    
+    // Shapes
+    document.querySelectorAll('.shape-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            document.querySelectorAll('.shape-btn').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            settings.shape = btn.dataset.shape;
+            if (!document.getElementById('textInput').value.trim()) setTargets('');
+        });
+    });
+    
+    // Colors
+    document.querySelectorAll('.color-dot').forEach(dot => {
+        dot.addEventListener('click', () => {
+            document.querySelectorAll('.color-dot').forEach(d => d.classList.remove('active'));
+            dot.classList.add('active');
+            settings.theme = dot.dataset.theme;
+            applyColors();
+        });
+    });
+    
+    // Types
+    document.querySelectorAll('.type-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            document.querySelectorAll('.type-btn').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            settings.type = btn.dataset.type;
+            updateParticleType();
+        });
+    });
+    
+    // Sliders
+    const sliders = ['speed','size','spread','mouse','gravity','trails','connect','life'];
+    sliders.forEach(name => {
+        const slider = document.getElementById(name + 'Slider');
+        const val = document.getElementById(name + 'Val');
+        slider.addEventListener('input', () => {
+            settings[name] = parseInt(slider.value);
+            val.textContent = slider.value;
+            if (name === 'size') particles.material.size = slider.value / 60;
+            if (name === 'spread') setTargets(document.getElementById('textInput').value);
+        });
+    });
+    
+    // Toggles
+    ['rotate','mouse','ripple','stars','audio'].forEach(name => {
+        const toggle = document.getElementById(name + 'Toggle');
+        const key = name === 'mouse' ? 'mouseOn' : name;
+        toggle.addEventListener('click', () => {
+            settings[key] = !settings[key];
+            toggle.classList.toggle('active');
+            if (name === 'stars') bgStars.visible = settings.stars;
+            if (name === 'audio' && settings.audio) initAudio();
+        });
+    });
+    
+    // Actions
+    document.getElementById('explodeBtn').addEventListener('click', () => {
+        const pos = particles.geometry.attributes.position.array;
+        for (let i = 0; i < N; i++) {
+            velocities[i*3] += (Math.random()-0.5) * 20;
+            velocities[i*3+1] += (Math.random()-0.5) * 20;
+            velocities[i*3+2] += (Math.random()-0.5) * 20;
+        }
+    });
+    
+    document.getElementById('screenshotBtn').addEventListener('click', () => {
+        const link = document.createElement('a');
+        link.download = 'particles.png';
+        link.href = renderer.domElement.toDataURL();
+        link.click();
+    });
+    
+    document.getElementById('randomBtn').addEventListener('click', () => {
+        const shapes = ['heart','sphere','torus','galaxy','cube','wave','star','spiral'];
+        const themes = Object.keys(THEMES);
+        settings.shape = shapes[Math.floor(Math.random() * shapes.length)];
+        settings.theme = themes[Math.floor(Math.random() * themes.length)];
+        document.querySelectorAll('.shape-btn').forEach(b => {
+            b.classList.toggle('active', b.dataset.shape === settings.shape);
+        });
+        document.querySelectorAll('.color-dot').forEach(d => {
+            d.classList.toggle('active', d.dataset.theme === settings.theme);
+        });
+        applyColors();
+        setTargets(document.getElementById('textInput').value);
+    });
+    
+    document.getElementById('resetBtn').addEventListener('click', () => {
+        document.getElementById('textInput').value = '';
+        settings = { shape:'heart', theme:'fire', type:'dots', speed:50, size:10, spread:100, mouse:50, gravity:0, trails:0, connect:0, life:0, rotate:true, mouseOn:true, ripple:true, stars:true, audio:false };
+        document.querySelectorAll('.shape-btn').forEach(b => b.classList.toggle('active', b.dataset.shape === 'heart'));
+        document.querySelectorAll('.color-dot').forEach(d => d.classList.toggle('active', d.dataset.theme === 'fire'));
+        document.querySelectorAll('.type-btn').forEach(b => b.classList.toggle('active', b.dataset.type === 'dots'));
+        document.querySelectorAll('.toggle').forEach(t => {
+            const id = t.id.replace('Toggle','');
+            if (['rotate','mouse','ripple','stars'].includes(id)) t.classList.add('active');
+            else t.classList.remove('active');
+        });
+        ['speed','size','spread','mouse','gravity','trails','connect','life'].forEach(n => {
+            const defaults = {speed:50,size:10,spread:100,mouse:50,gravity:0,trails:0,connect:0,life:0};
+            document.getElementById(n+'Slider').value = defaults[n];
+            document.getElementById(n+'Val').textContent = defaults[n];
+        });
+        particles.material.size = 0.15;
+        bgStars.visible = true;
+        applyColors();
+        setTargets('');
+    });
+    
+    // Presets
+    document.querySelectorAll('[data-preset]').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const presets = {
+                default: { shape:'heart', theme:'fire', speed:50, size:10, spread:100, gravity:0, trails:0 },
+                neon: { shape:'galaxy', theme:'cyber', speed:70, size:8, spread:120, gravity:0, trails:30 },
+                calm: { shape:'sphere', theme:'ocean', speed:20, size:12, spread:80, gravity:0, trails:0 },
+                chaos: { shape:'spiral', theme:'rainbow', speed:100, size:6, spread:150, gravity:50, trails:50 }
+            };
+            const p = presets[btn.dataset.preset];
+            Object.assign(settings, p);
+            applyColors();
+            setTargets(document.getElementById('textInput').value);
+        });
+    });
+    
+    // Export/Import
+    document.getElementById('exportBtn').addEventListener('click', () => {
+        const data = JSON.stringify(settings);
+        const blob = new Blob([data], {type: 'application/json'});
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url; a.download = 'particle-preset.json'; a.click();
+    });
+    
+    document.getElementById('importBtn').addEventListener('click', () => {
+        const input = document.createElement('input');
+        input.type = 'file'; input.accept = '.json';
+        input.onchange = e => {
+            const reader = new FileReader();
+            reader.onload = ev => {
+                try {
+                    Object.assign(settings, JSON.parse(ev.target.result));
+                    applyColors();
+                    setTargets(document.getElementById('textInput').value);
+                } catch(err) {}
+            };
+            reader.readAsText(e.target.files[0]);
+        };
+        input.click();
+    });
+    
+    // Color pickers
+    ['color1','color2','color3'].forEach((id, i) => {
+        document.getElementById(id).addEventListener('input', e => {
+            const hex = e.target.value;
+            const r = parseInt(hex.slice(1,3),16)/255;
+            const g = parseInt(hex.slice(3,5),16)/255;
+            const b = parseInt(hex.slice(5,7),16)/255;
+            THEMES.custom = THEMES.custom || [[1,0,0],[0,1,0],[0,0,1]];
+            THEMES.custom[i] = [r, g, b];
+            settings.theme = 'custom';
+            document.querySelectorAll('.color-dot').forEach(d => d.classList.remove('active'));
+            applyColors();
+        });
+    });
+}
+
+function updateParticleType() {
+    if (settings.type === 'dots') {
+        particles.material.wireframe = false;
+        particles.material.size = settings.size / 60;
+    } else {
+        particles.material.wireframe = settings.type === 'triangles';
+        particles.material.size = settings.size / 60;
+    }
+}
+
+async function initAudio() {
+    try {
+        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        const source = audioCtx.createMediaStreamSource(stream);
+        analyser = audioCtx.createAnalyser();
+        analyser.fftSize = 256;
+        source.connect(analyser);
+        audioData = new Uint8Array(analyser.frequencyBinCount);
+        document.getElementById('audioDot').classList.add('active');
+    } catch(e) {
+        console.log('Audio not available');
+        settings.audio = false;
+        document.getElementById('audioToggle').classList.remove('active');
+    }
+}
+
+function animate() {
+    requestAnimationFrame(animate);
+    
+    const dt = 0.016;
+    t += dt * (settings.speed / 50);
+    
+    // Audio
+    if (settings.audio && analyser) {
+        analyser.getByteFrequencyData(audioData);
+        audioLevel = audioData.reduce((a, b) => a + b, 0) / audioData.length / 256;
+    } else {
+        audioLevel = 0;
+    }
+    
+    // Mouse world position
+    const vec = new THREE.Vector3(mouse.x, mouse.y, 0.5);
+    vec.unproject(camera);
+    const dir = vec.sub(camera.position).normalize();
+    const dist = -camera.position.z / dir.z;
+    const mw = camera.position.clone().add(dir.multiplyScalar(dist));
+    
+    const pos = particles.geometry.attributes.position.array;
+    const col = particles.geometry.attributes.color.array;
+    const pal = THEMES[settings.theme] || THEMES.fire;
+    const grav = settings.gravity / 500;
+    const mouseForce = settings.mouse / 25;
+    const lifeEnabled = settings.life > 0;
+    const lifeSpan = (100 - settings.life) * 2;
+    
+    for (let i = 0; i < N; i++) {
+        const i3 = i * 3;
+        let px = pos[i3], py = pos[i3+1], pz = pos[i3+2];
+        const tx = targets[i3], ty = targets[i3+1], tz = targets[i3+2];
+        
+        // Mouse interaction
+        if (settings.mouseOn) {
+            const dx = px - mw.x, dy = py - mw.y, dz = pz - mw.z;
+            const d2 = dx*dx + dy*dy + dz*dz;
+            if (d2 < 100) {
+                const d = Math.sqrt(d2) + 0.001;
+                const f = (10 - d) / 10 * mouseForce;
+                velocities[i3] += (dx/d) * f;
+                velocities[i3+1] += (dy/d) * f;
+                velocities[i3+2] += (dz/d) * f;
+            }
+        }
+        
+        // Spring to target
+        velocities[i3] += (tx - px) * 0.08;
+        velocities[i3+1] += (ty - py) * 0.08;
+        velocities[i3+2] += (tz - pz) * 0.08;
+        
+        // Gravity
+        velocities[i3+1] -= grav;
+        
+        // Ripple
+        if (settings.ripple) {
+            const dc = Math.sqrt(px*px + py*py + pz*pz) + 0.001;
+            const wv = Math.sin(dc * 0.3 - t * 3) * 0.02;
+            velocities[i3] += wv * (px/dc);
+            velocities[i3+1] += wv * (py/dc);
+        }
+        
+        // Audio
+        if (audioLevel > 0) {
+            const wave = Math.sin(i * 0.01 + t * 5) * audioLevel * 2;
+            velocities[i3+1] += wave;
+        }
+        
+        // Damping
+        velocities[i3] *= 0.82;
+        velocities[i3+1] *= 0.82;
+        velocities[i3+2] *= 0.82;
+        
+        // Update position
+        pos[i3] += velocities[i3];
+        pos[i3+1] += velocities[i3+1];
+        pos[i3+2] += velocities[i3+2];
+        
+        // Life cycle
+        if (lifeEnabled) {
+            ages[i] += dt * 10;
+            if (ages[i] > lifeSpan) {
+                ages[i] = 0;
+                pos[i3] = (Math.random()-0.5)*100;
+                pos[i3+1] = (Math.random()-0.5)*100;
+                pos[i3+2] = (Math.random()-0.5)*100;
+            }
+        }
+        
+        // Rainbow color cycling
+        if (settings.theme === 'rainbow') {
+            const h = (seeds[i] + t * 0.2) % 1;
+            const idx = Math.floor(h * 5) % 5;
+            const next = (idx + 1) % 5;
+            const blend = (h * 5) % 1;
+            col[i*3] = pal[idx][0] + (pal[next][0] - pal[idx][0]) * blend;
+            col[i*3+1] = pal[idx][1] + (pal[next][1] - pal[idx][1]) * blend;
+            col[i*3+2] = pal[idx][2] + (pal[next][2] - pal[idx][2]) * blend;
+        }
+    }
+    
+    particles.geometry.attributes.position.needsUpdate = true;
+    particles.geometry.attributes.color.needsUpdate = true;
+    
+    // Rotation
+    if (!textMode) {
+        if (settings.rotate && !drag.active) autoRot += dt * 0.2;
+        particles.rotation.y = rotY + Math.sin(autoRot) * 0.3;
+        particles.rotation.x = rotX + Math.sin(t * 0.1) * 0.05;
+    } else {
+        rotY *= 0.95; rotX *= 0.95;
+        particles.rotation.y = rotY;
+        particles.rotation.x = rotX;
+    }
+    
+    // Background stars
+    if (settings.stars) {
+        bgStars.rotation.y = t * 0.01;
+        bgStars.rotation.x = t * 0.005;
+    }
+    
+    renderer.render(scene, camera);
+}
+
+window.onload = init;
+</script>
+</body>
+</html>
