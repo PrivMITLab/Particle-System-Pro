@@ -1,0 +1,1345 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>3D Particle System</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=Playfair+Display:wght@700&family=Bebas+Neue&family=Dancing+Script:wght@700&family=Orbitron:wght@700&family=Pacifico&family=Righteous&family=Lobster&family=Cinzel:wght@700&family=Monoton&display=swap');
+        
+        :root {
+            --bg: #000000;
+            --surface: rgba(255,255,255,0.04);
+            --surface-hover: rgba(255,255,255,0.08);
+            --surface-active: rgba(255,255,255,0.12);
+            --border: rgba(255,255,255,0.1);
+            --border-strong: rgba(255,255,255,0.18);
+            --text: rgba(255,255,255,0.92);
+            --text-secondary: rgba(255,255,255,0.55);
+            --text-tertiary: rgba(255,255,255,0.35);
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            overflow: hidden;
+            background: var(--bg);
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            color: var(--text);
+            -webkit-font-smoothing: antialiased;
+        }
+
+        canvas {
+            position: fixed;
+            top: 0; left: 0;
+            display: block;
+            cursor: grab;
+        }
+        canvas:active { cursor: grabbing; }
+
+        /* Top Stats - smaller */
+        .top-stats {
+            position: fixed;
+            top: 14px; left: 16px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            z-index: 50;
+            pointer-events: none;
+        }
+        .stat-pill {
+            font-size: 8px;
+            font-weight: 500;
+            letter-spacing: 1px;
+            color: var(--text-tertiary);
+            text-transform: uppercase;
+            padding: 3px 6px;
+            background: rgba(0,0,0,0.6);
+            border: 1px solid var(--border);
+            border-radius: 5px;
+            backdrop-filter: blur(10px);
+        }
+        .audio-dot {
+            width: 6px; height: 6px;
+            border-radius: 50%;
+            background: var(--text-tertiary);
+            opacity: 0;
+            transition: all 0.3s;
+            box-shadow: 0 0 0 2px rgba(0,0,0,0.8);
+        }
+        .audio-dot.active {
+            opacity: 1;
+            background: #00ff88;
+            box-shadow: 0 0 8px #00ff88, 0 0 0 2px rgba(0,0,0,0.8);
+        }
+
+        /* Branding - smaller */
+        .brand {
+            position: fixed;
+            bottom: 14px; left: 16px;
+            z-index: 50;
+            pointer-events: auto;
+        }
+        .brand a {
+            font-size: 8px;
+            font-weight: 500;
+            letter-spacing: 0.4px;
+            color: var(--text-tertiary);
+            text-decoration: none;
+            padding: 3px 6px;
+            background: rgba(0,0,0,0.7);
+            border: 1px solid var(--border);
+            border-radius: 5px;
+            backdrop-filter: blur(10px);
+            transition: all 0.2s;
+            display: inline-block;
+        }
+        .brand a:hover {
+            color: var(--text);
+            border-color: var(--border-strong);
+            background: rgba(0,0,0,0.85);
+        }
+
+        /* Top Right Buttons */
+        .top-buttons {
+            position: fixed;
+            top: 14px; right: 16px;
+            display: flex;
+            gap: 8px;
+            z-index: 100;
+        }
+        .icon-btn {
+            width: 32px; height: 32px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: rgba(0,0,0,0.75);
+            border: 1px solid var(--border);
+            border-radius: 9px;
+            color: var(--text-secondary);
+            cursor: pointer;
+            backdrop-filter: blur(16px);
+            transition: all 0.25s cubic-bezier(0.4,0,0.2,1);
+        }
+        .icon-btn:hover {
+            background: rgba(0,0,0,0.9);
+            border-color: var(--border-strong);
+            color: var(--text);
+            transform: translateY(-1px);
+        }
+        .icon-btn:active { transform: translateY(0); }
+        .icon-btn svg { width: 16px; height: 16px; transition: transform 0.4s; }
+        .icon-btn.active svg { transform: rotate(90deg); }
+
+        /* Overlay */
+        .settings-overlay {
+            position: fixed; inset: 0;
+            background: rgba(0,0,0,0.7);
+            backdrop-filter: blur(4px);
+            opacity: 0; pointer-events: none;
+            z-index: 150;
+            transition: opacity 0.3s;
+        }
+        .settings-overlay.show { opacity: 1; pointer-events: auto; }
+
+        /* Settings Panel */
+        .settings-panel {
+            position: fixed;
+            top: 0; right: 0;
+            width: 380px; max-width: calc(100vw - 20px);
+            height: 100vh;
+            background: #050505;
+            border-left: 1px solid var(--border);
+            z-index: 180;
+            transform: translateX(100%);
+            transition: transform 0.35s cubic-bezier(0.4,0,0.2,1);
+            display: flex;
+            flex-direction: column;
+            box-shadow: -20px 0 60px rgba(0,0,0,0.8);
+        }
+        .settings-panel.open { transform: translateX(0); }
+
+        .panel-header {
+            position: relative;
+            padding: 22px 24px 18px;
+            border-bottom: 1px solid var(--border);
+            flex-shrink: 0;
+        }
+        .panel-title {
+            font-size: 13px;
+            font-weight: 600;
+            letter-spacing: 1.8px;
+            text-transform: uppercase;
+            color: var(--text);
+            margin-bottom: 4px;
+        }
+        .panel-subtitle {
+            font-size: 11px;
+            color: var(--text-tertiary);
+        }
+
+        .settings-close {
+            position: absolute;
+            top: 14px;
+            right: 14px;
+            width: 28px;
+            height: 28px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            color: var(--text-secondary);
+            cursor: pointer;
+            transition: all 0.2s;
+            z-index: 10;
+        }
+        .settings-close:hover {
+            background: var(--surface-hover);
+            color: var(--text);
+            border-color: var(--border-strong);
+        }
+        .settings-close svg { width: 14px; height: 14px; }
+
+        @media (max-width: 640px) {
+            .settings-close { top: 12px; right: 12px; width: 32px; height: 32px; }
+            .settings-close svg { width: 16px; height: 16px; }
+        }
+
+        .panel-scroll {
+            flex: 1;
+            overflow-y: auto;
+            overflow-x: hidden;
+            padding: 0 20px 24px;
+        }
+        .panel-scroll::-webkit-scrollbar { width: 4px; }
+        .panel-scroll::-webkit-scrollbar-track { background: transparent; }
+        .panel-scroll::-webkit-scrollbar-thumb { background: var(--surface); border-radius: 2px; }
+        .panel-scroll::-webkit-scrollbar-thumb:hover { background: var(--surface-hover); }
+
+        /* Sections */
+        .settings-section { margin-top: 24px; }
+        .section-head {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 12px;
+        }
+        .section-icon { width: 14px; height: 14px; color: var(--text-tertiary); }
+        .section-name {
+            font-size: 10px;
+            font-weight: 600;
+            letter-spacing: 1.6px;
+            text-transform: uppercase;
+            color: var(--text-secondary);
+        }
+
+        /* Shape Grid */
+        .shape-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 8px;
+        }
+        .shape-item {
+            position: relative;
+            aspect-ratio: 1.4;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 5px;
+            background: var(--surface);
+            border: 1px solid transparent;
+            border-radius: 10px;
+            cursor: pointer;
+            transition: all 0.2s;
+            padding: 8px 4px;
+        }
+        .shape-item:hover { background: var(--surface-hover); border-color: var(--border); }
+        .shape-item.active {
+            background: var(--surface-active);
+            border-color: var(--border-strong);
+        }
+        .shape-item.active::after {
+            content: ''; position: absolute; inset: -1px;
+            border: 1px solid var(--text); border-radius: 10px;
+            pointer-events: none; opacity: 0.3;
+        }
+        .shape-emoji { font-size: 18px; line-height: 1; filter: grayscale(0.2); }
+        .shape-item.active .shape-emoji { filter: none; }
+        .shape-label {
+            font-size: 9.5px; font-weight: 500;
+            color: var(--text-tertiary); letter-spacing: 0.3px;
+            text-align: center; line-height: 1.1;
+        }
+        .shape-item.active .shape-label { color: var(--text); }
+
+        /* Font Grid */
+        .font-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 7px;
+        }
+        .font-item {
+            padding: 10px 8px;
+            background: var(--surface);
+            border: 1px solid transparent;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.2s;
+            text-align: center;
+        }
+        .font-item:hover { background: var(--surface-hover); border-color: var(--border); }
+        .font-item.active { background: var(--surface-active); border-color: var(--border-strong); }
+        .font-preview {
+            font-size: 16px;
+            line-height: 1;
+            margin-bottom: 4px;
+            color: var(--text);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .font-name {
+            font-size: 9px;
+            color: var(--text-tertiary);
+            font-family: 'Inter', sans-serif;
+        }
+        .font-item.active .font-name { color: var(--text-secondary); }
+
+        /* Type Toggle */
+        .type-toggle {
+            display: grid; grid-template-columns: repeat(3,1fr);
+            gap: 6px; padding: 4px;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+        }
+        .type-option {
+            padding: 9px 8px; text-align: center;
+            font-size: 11px; font-weight: 500;
+            color: var(--text-secondary);
+            background: transparent; border: none;
+            border-radius: 7px; cursor: pointer;
+            transition: all 0.18s; font-family: inherit;
+        }
+        .type-option:hover { color: var(--text); }
+        .type-option.active { background: var(--bg); color: var(--text); box-shadow: 0 1px 3px rgba(0,0,0,0.5); }
+
+        /* Color Grid */
+        .color-grid {
+            display: grid; grid-template-columns: repeat(8, 1fr);
+            gap: 9px;
+        }
+        .color-swatch {
+            aspect-ratio: 1; border-radius: 9px;
+            cursor: pointer; position: relative;
+            border: 2px solid transparent;
+            transition: all 0.2s; overflow: hidden;
+        }
+        .color-swatch::before {
+            content: ''; position: absolute; inset: 0;
+            border-radius: 7px; box-shadow: inset 0 0 0 1px rgba(0,0,0,0.3);
+        }
+        .color-swatch:hover { transform: translateY(-2px); }
+        .color-swatch.active { border-color: var(--text); transform: translateY(-1px) scale(1.05); }
+        .color-swatch.custom {
+            background: var(--surface);
+            border: 1px dashed var(--border);
+            display: flex; align-items: center; justify-content: center;
+        }
+        .color-swatch.custom::before { display: none; }
+        .color-swatch.custom svg {
+            width: 16px; height: 16px; color: rgba(255,255,255,0.9);
+            filter: drop-shadow(0 1px 2px rgba(0,0,0,0.65));
+            opacity: 0.9;
+        }
+
+        /* Color Mixer */
+        .mixer-row {
+            display: grid; grid-template-columns: repeat(3,1fr); gap: 10px;
+            margin-top: 10px;
+        }
+        .mixer-item {
+            display: flex; flex-direction: column; align-items: center; gap: 6px;
+        }
+        .mixer-swatch {
+            width: 100%; height: 38px;
+            border-radius: 8px; border: 1px solid var(--border);
+            cursor: pointer; position: relative; overflow: hidden;
+        }
+        .mixer-swatch input {
+            position: absolute; inset: -4px;
+            width: calc(100% + 8px); height: calc(100% + 8px);
+            border: none; cursor: pointer; opacity: 0;
+        }
+        .mixer-label {
+            font-size: 9px; color: var(--text-tertiary);
+            text-transform: uppercase; letter-spacing: 0.8px; font-weight: 500;
+        }
+
+        /* Sliders */
+        .control-group { margin-bottom: 16px; }
+        .control-group:last-child { margin-bottom: 0; }
+        .control-head {
+            display: flex; justify-content: space-between; align-items: baseline;
+            margin-bottom: 8px;
+        }
+        .control-name { font-size: 11.5px; color: var(--text-secondary); font-weight: 500; }
+        .control-value {
+            font-size: 11px; font-weight: 600; color: var(--text);
+            font-variant-numeric: tabular-nums;
+            min-width: 32px; text-align: right;
+            padding: 2px 6px; background: var(--surface);
+            border-radius: 5px; border: 1px solid var(--border);
+        }
+        .slider {
+            width: 100%; height: 24px;
+            -webkit-appearance: none; appearance: none;
+            background: transparent; cursor: pointer;
+            margin: 0;
+        }
+        .slider::-webkit-slider-runnable-track {
+            height: 4px; background: var(--surface);
+            border-radius: 2px; border: 1px solid var(--border);
+        }
+        .slider::-webkit-slider-thumb {
+            -webkit-appearance: none; width: 16px; height: 16px;
+            margin-top: -7px; background: var(--text);
+            border-radius: 50%; border: 2px solid #000;
+            box-shadow: 0 1px 4px rgba(0,0,0,0.5);
+            transition: transform 0.15s;
+        }
+        .slider::-webkit-slider-thumb:hover { transform: scale(1.15); }
+        .slider::-webkit-slider-thumb:active { transform: scale(1.05); }
+
+        /* Toggles */
+        .toggle-list { display: flex; flex-direction: column; gap: 2px; }
+        .toggle-item {
+            display: flex; justify-content: space-between; align-items: center;
+            padding: 10px 12px; margin: 0 -12px;
+            border-radius: 8px; transition: background 0.15s; cursor: pointer;
+        }
+        .toggle-item:hover { background: var(--surface); }
+        .toggle-info { display: flex; flex-direction: column; gap: 2px; }
+        .toggle-name { font-size: 12px; color: var(--text); font-weight: 450; }
+        .toggle-desc { font-size: 10.5px; color: var(--text-tertiary); line-height: 1.3; }
+        .switch {
+            width: 40px; height: 22px;
+            background: var(--surface); border: 1px solid var(--border);
+            border-radius: 11px; position: relative;
+            transition: all 0.25s; flex-shrink: 0;
+        }
+        .switch::after {
+            content: ''; position: absolute; width: 16px; height: 16px;
+            background: var(--text-secondary); border-radius: 50%;
+            top: 2px; left: 2px; transition: all 0.25s cubic-bezier(0.4,0,0.2,1);
+        }
+        .toggle-item.active .switch { background: rgba(255,255,255,0.15); border-color: rgba(255,255,255,0.25); }
+        .toggle-item.active .switch::after { transform: translateX(18px); background: var(--text); }
+
+        /* Presets */
+        .preset-strip {
+            display: flex; gap: 7px; overflow-x: auto;
+            padding: 2px 0 8px; margin: 0 -20px; padding-left: 20px;
+            scrollbar-width: none;
+        }
+        .preset-strip::-webkit-scrollbar { display: none; }
+        .preset-chip {
+            padding: 7px 14px; background: var(--surface);
+            border: 1px solid var(--border); border-radius: 20px;
+            font-size: 11px; font-weight: 500; color: var(--text-secondary);
+            white-space: nowrap; cursor: pointer;
+            transition: all 0.18s; flex-shrink: 0;
+        }
+        .preset-chip:hover { background: var(--surface-hover); color: var(--text); border-color: var(--border-strong); }
+        .preset-chip.active { background: var(--surface-active); color: var(--text); border-color: var(--border-strong); }
+
+        /* Actions */
+        .action-grid {
+            display: grid; grid-template-columns: repeat(3,1fr); gap: 8px;
+        }
+        .action-btn {
+            display: flex; flex-direction: column; align-items: center; gap: 5px;
+            padding: 12px 8px; background: var(--surface);
+            border: 1px solid var(--border); border-radius: 10px;
+            color: var(--text-secondary); cursor: pointer;
+            transition: all 0.18s; font-family: inherit;
+        }
+        .action-btn:hover { background: var(--surface-hover); color: var(--text); border-color: var(--border-strong); transform: translateY(-1px); }
+        .action-btn:active { transform: translateY(0); }
+        .action-btn svg { width: 18px; height: 18px; }
+        .action-btn span { font-size: 10px; font-weight: 500; letter-spacing: 0.3px; }
+        .action-btn.danger:hover { background: rgba(255,60,60,0.12); border-color: rgba(255,60,60,0.3); color: #ff6b6b; }
+
+        /* Input Bar - smaller */
+        .input-bar {
+            position: fixed; bottom: 0; left: 0; right: 0;
+            padding: 10px 16px 14px;
+            background: linear-gradient(to top, rgba(0,0,0,0.95) 0%, rgba(0,0,0,0.8) 60%, transparent 100%);
+            z-index: 40; pointer-events: none;
+        }
+        .input-inner { max-width: 260px; margin: 0 auto; pointer-events: auto; }
+        .text-field {
+            width: 100%; padding: 7px 14px;
+            background: rgba(0,0,0,0.75); border: 1px solid var(--border);
+            border-radius: 16px; color: var(--text);
+            font-size: 11px; font-weight: 400;
+            text-align: center; letter-spacing: 0.3px; outline: none;
+            backdrop-filter: blur(20px); transition: all 0.25s;
+        }
+        .text-field::placeholder { color: var(--text-tertiary); }
+        .text-field:focus { background: rgba(0,0,0,0.9); border-color: var(--border-strong); box-shadow: 0 0 0 3px rgba(255,255,255,0.05); }
+
+        /* Loading */
+        .loader {
+            position: fixed; inset: 0; background: #000;
+            display: flex; align-items: center; justify-content: center;
+            z-index: 9999; transition: opacity 0.4s;
+        }
+        .loader.hide { opacity: 0; pointer-events: none; }
+        .loader-text {
+            font-size: 11px; font-weight: 500; letter-spacing: 3px;
+            color: var(--text-tertiary); text-transform: uppercase;
+            animation: pulse 1.8s ease-in-out infinite;
+        }
+        @keyframes pulse { 0%,100% { opacity: 0.4; } 50% { opacity: 1; } }
+
+        /* Mobile */
+        @media (max-width: 680px) {
+            .settings-panel { width: 100%; max-width: 100%; }
+            .shape-grid { grid-template-columns: repeat(3, 1fr); }
+            .font-grid { grid-template-columns: repeat(2, 1fr); }
+            .color-grid { grid-template-columns: repeat(4, 1fr); }
+            .action-grid { grid-template-columns: repeat(3, 1fr); }
+            .top-stats { top: 10px; left: 12px; }
+            .top-buttons { top: 10px; right: 12px; }
+            .icon-btn { width: 30px; height: 30px; }
+            .brand { bottom: 10px; left: 12px; }
+            .input-bar { padding: 8px 12px 12px; }
+            .input-inner { max-width: 220px; }
+        }
+
+        html, body {
+            overscroll-behavior: none;
+        }
+
+        canvas {
+            touch-action: none;
+        }
+
+        .settings-panel,
+        .panel-scroll {
+            overscroll-behavior: contain;
+            -webkit-overflow-scrolling: touch;
+        }
+
+        .top-stats {
+            top: calc(14px + env(safe-area-inset-top, 0px));
+            left: calc(16px + env(safe-area-inset-left, 0px));
+        }
+
+        .top-buttons {
+            top: calc(14px + env(safe-area-inset-top, 0px));
+            right: calc(16px + env(safe-area-inset-right, 0px));
+        }
+
+        .brand {
+            left: calc(16px + env(safe-area-inset-left, 0px));
+            bottom: calc(14px + env(safe-area-inset-bottom, 0px));
+        }
+
+        .input-bar {
+            padding-bottom: calc(14px + env(safe-area-inset-bottom, 0px));
+        }
+    </style>
+</head>
+<body>
+    <div class="loader" id="loader"><div class="loader-text">Loading</div></div>
+    <canvas id="canvas"></canvas>
+
+    <div class="top-stats">
+        <div class="stat-pill"><span id="count">40K</span></div>
+        <div class="stat-pill"><span id="fps">60</span></div>
+        <div class="audio-dot" id="audiodot"></div>
+    </div>
+
+    <div class="top-buttons">
+        <button class="icon-btn" id="fullscreenBtn" title="Fullscreen">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/>
+            </svg>
+        </button>
+        <button class="icon-btn" id="settingsBtn" title="Settings">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+            </svg>
+        </button>
+    </div>
+
+    <div class="brand"><a href="https://github.com/SudhirDevOps1" target="_blank" rel="noopener">@SudhirDevOps1</a></div>
+
+    <div class="settings-overlay" id="overlay"></div>
+    <div class="settings-panel" id="panel">
+        <div class="panel-header">
+            <button class="settings-close" id="settingsClose" title="Close settings" aria-label="Close settings">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <line x1="18" y1="6" x2="6" y2="18"></line>
+                    <line x1="6" y1="6" x2="18" y2="18"></line>
+                </svg>
+            </button>
+            <div class="panel-title">Controls</div>
+            <div class="panel-subtitle">Customize your particle system</div>
+        </div>
+        <div class="panel-scroll">
+            
+            <div class="settings-section">
+                <div class="section-head">
+                    <svg class="section-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></svg>
+                    <div class="section-name">Shapes</div>
+                </div>
+                <div class="shape-grid">
+                    <div class="shape-item active" data-shape="heart"><div class="shape-emoji">♥</div><div class="shape-label">Heart</div></div>
+                    <div class="shape-item" data-shape="sphere"><div class="shape-emoji">◉</div><div class="shape-label">Sphere</div></div>
+                    <div class="shape-item" data-shape="torus"><div class="shape-emoji">◎</div><div class="shape-label">Torus</div></div>
+                    <div class="shape-item" data-shape="galaxy"><div class="shape-emoji">✦</div><div class="shape-label">Galaxy</div></div>
+                    <div class="shape-item" data-shape="dna"><div class="shape-emoji">⌇</div><div class="shape-label">DNA</div></div>
+                    <div class="shape-item" data-shape="cube"><div class="shape-emoji">⬡</div><div class="shape-label">Cube</div></div>
+                    <div class="shape-item" data-shape="wave"><div class="shape-emoji">〜</div><div class="shape-label">Wave</div></div>
+                    <div class="shape-item" data-shape="star"><div class="shape-emoji">★</div><div class="shape-label">Star</div></div>
+                    <div class="shape-item" data-shape="spiral"><div class="shape-emoji">⊛</div><div class="shape-label">Spiral</div></div>
+                </div>
+            </div>
+
+            <div class="settings-section">
+                <div class="section-head">
+                    <svg class="section-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 7V4h16v3M9 20h6M12 4v16"/></svg>
+                    <div class="section-name">Font Style</div>
+                </div>
+                <div class="font-grid">
+                    <div class="font-item active" data-font="Inter">
+                        <div class="font-preview" style="font-family: 'Inter', sans-serif; font-weight: 700;">Aa</div>
+                        <div class="font-name">Inter</div>
+                    </div>
+                    <div class="font-item" data-font="Playfair Display">
+                        <div class="font-preview" style="font-family: 'Playfair Display', serif;">Aa</div>
+                        <div class="font-name">Playfair</div>
+                    </div>
+                    <div class="font-item" data-font="Bebas Neue">
+                        <div class="font-preview" style="font-family: 'Bebas Neue', cursive; letter-spacing: 1px;">AA</div>
+                        <div class="font-name">Bebas</div>
+                    </div>
+                    <div class="font-item" data-font="Dancing Script">
+                        <div class="font-preview" style="font-family: 'Dancing Script', cursive;">Aa</div>
+                        <div class="font-name">Dancing</div>
+                    </div>
+                    <div class="font-item" data-font="Orbitron">
+                        <div class="font-preview" style="font-family: 'Orbitron', sans-serif;">Aa</div>
+                        <div class="font-name">Orbitron</div>
+                    </div>
+                    <div class="font-item" data-font="Pacifico">
+                        <div class="font-preview" style="font-family: 'Pacifico', cursive;">Aa</div>
+                        <div class="font-name">Pacifico</div>
+                    </div>
+                    <div class="font-item" data-font="Righteous">
+                        <div class="font-preview" style="font-family: 'Righteous', cursive;">Aa</div>
+                        <div class="font-name">Righteous</div>
+                    </div>
+                    <div class="font-item" data-font="Lobster">
+                        <div class="font-preview" style="font-family: 'Lobster', cursive;">Aa</div>
+                        <div class="font-name">Lobster</div>
+                    </div>
+                    <div class="font-item" data-font="Cinzel">
+                        <div class="font-preview" style="font-family: 'Cinzel', serif;">Aa</div>
+                        <div class="font-name">Cinzel</div>
+                    </div>
+                    <div class="font-item" data-font="Monoton">
+                        <div class="font-preview" style="font-family: 'Monoton', cursive; font-size: 14px;">Aa</div>
+                        <div class="font-name">Monoton</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="settings-section">
+                <div class="section-head">
+                    <svg class="section-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg>
+                    <div class="section-name">Particle Type</div>
+                </div>
+                <div class="type-toggle">
+                    <button class="type-option active" data-type="points">Dots</button>
+                    <button class="type-option" data-type="lines">Lines</button>
+                    <button class="type-option" data-type="triangles">Tri</button>
+                </div>
+            </div>
+
+            <div class="settings-section">
+                <div class="section-head">
+                    <svg class="section-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 2a10 10 0 0 1 10 10"/></svg>
+                    <div class="section-name">Colors</div>
+                </div>
+                <div class="color-grid">
+                    <div class="color-swatch active" data-theme="fire" style="background:linear-gradient(135deg,#ff0040,#ff8800)"></div>
+                    <div class="color-swatch" data-theme="ocean" style="background:linear-gradient(135deg,#00d4ff,#0044ff)"></div>
+                    <div class="color-swatch" data-theme="aurora" style="background:linear-gradient(135deg,#00ffaa,#9900ff)"></div>
+                    <div class="color-swatch" data-theme="sunset" style="background:linear-gradient(135deg,#ff6600,#ff00cc)"></div>
+                    <div class="color-swatch" data-theme="cyber" style="background:linear-gradient(135deg,#00ffff,#ff00ff)"></div>
+                    <div class="color-swatch" data-theme="gold" style="background:linear-gradient(135deg,#ffdd00,#ff6600)"></div>
+                    <div class="color-swatch" data-theme="candy" style="background:linear-gradient(135deg,#ff77ff,#77ffdd)"></div>
+                    <div class="color-swatch custom" id="customBtn" title="Custom"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg></div>
+                </div>
+                <div class="mixer-row">
+                    <div class="mixer-item"><div class="mixer-swatch" style="background:#ff0040"><input type="color" id="c1" value="#ff0040"></div><div class="mixer-label">1</div></div>
+                    <div class="mixer-item"><div class="mixer-swatch" style="background:#ff8800"><input type="color" id="c2" value="#ff8800"></div><div class="mixer-label">2</div></div>
+                    <div class="mixer-item"><div class="mixer-swatch" style="background:#ffdd00"><input type="color" id="c3" value="#ffdd00"></div><div class="mixer-label">3</div></div>
+                </div>
+            </div>
+
+            <div class="settings-section">
+                <div class="section-head">
+                    <svg class="section-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20V10M18 20V4M6 20v-6"/></svg>
+                    <div class="section-name">Parameters</div>
+                </div>
+                <div class="control-group"><div class="control-head"><div class="control-name">Size</div><div class="control-value" id="v-size">0.12</div></div><input type="range" class="slider" id="s-size" min="0.02" max="0.5" step="0.01" value="0.12"></div>
+                <div class="control-group"><div class="control-head"><div class="control-name">Speed</div><div class="control-value" id="v-speed">1.0</div></div><input type="range" class="slider" id="s-speed" min="0.1" max="3" step="0.1" value="1"></div>
+                <div class="control-group"><div class="control-head"><div class="control-name">Spread</div><div class="control-value" id="v-spread">1.0</div></div><input type="range" class="slider" id="s-spread" min="0.5" max="2" step="0.1" value="1"></div>
+                <div class="control-group"><div class="control-head"><div class="control-name">Force</div><div class="control-value" id="v-force">2.5</div></div><input type="range" class="slider" id="s-force" min="0" max="10" step="0.5" value="2.5"></div>
+                <div class="control-group"><div class="control-head"><div class="control-name">Gravity</div><div class="control-value" id="v-grav">0.0</div></div><input type="range" class="slider" id="s-grav" min="-2" max="2" step="0.1" value="0"></div>
+                <div class="control-group"><div class="control-head"><div class="control-name">Links</div><div class="control-value" id="v-link">0</div></div><input type="range" class="slider" id="s-link" min="0" max="5" step="1" value="0"></div>
+            </div>
+
+            <div class="settings-section">
+                <div class="section-head">
+                    <svg class="section-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+                    <div class="section-name">Effects</div>
+                </div>
+                <div class="toggle-list">
+                    <div class="toggle-item" data-toggle="rotate"><div class="toggle-info"><div class="toggle-name">Auto Rotate</div><div class="toggle-desc">Gentle automatic rotation</div></div><div class="switch"></div></div>
+                    <div class="toggle-item active" data-toggle="repel"><div class="toggle-info"><div class="toggle-name">Mouse Repel</div><div class="toggle-desc">Particles avoid cursor</div></div><div class="switch"></div></div>
+                    <div class="toggle-item active" data-toggle="ripple"><div class="toggle-info"><div class="toggle-name">Ripple Wave</div><div class="toggle-desc">Wave distortion effect</div></div><div class="switch"></div></div>
+                    <div class="toggle-item" data-toggle="audio"><div class="toggle-info"><div class="toggle-name">Audio React</div><div class="toggle-desc">Respond to microphone</div></div><div class="switch"></div></div>
+                    <div class="toggle-item" data-toggle="magnetic"><div class="toggle-info"><div class="toggle-name">Magnetic</div><div class="toggle-desc">Create attractors</div></div><div class="switch"></div></div>
+                    <div class="toggle-item" data-toggle="life"><div class="toggle-info"><div class="toggle-name">Life Cycle</div><div class="toggle-desc">Particles fade & respawn</div></div><div class="switch"></div></div>
+                    <div class="toggle-item active" data-toggle="stars"><div class="toggle-info"><div class="toggle-name">Starfield</div><div class="toggle-desc">Background stars</div></div><div class="switch"></div></div>
+                </div>
+            </div>
+
+            <div class="settings-section">
+                <div class="section-head">
+                    <svg class="section-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M9 3v18"/></svg>
+                    <div class="section-name">Presets</div>
+                </div>
+                <div class="preset-strip">
+                    <div class="preset-chip" data-preset="default">Default</div>
+                    <div class="preset-chip" data-preset="neon">Neon</div>
+                    <div class="preset-chip" data-preset="calm">Calm</div>
+                    <div class="preset-chip" data-preset="chaos">Chaos</div>
+                </div>
+            </div>
+
+            <div class="settings-section">
+                <div class="section-head">
+                    <svg class="section-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></svg>
+                    <div class="section-name">Actions</div>
+                </div>
+                <div class="action-grid">
+                    <button class="action-btn" id="act-explode"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M8 12h8M12 8v8"/></svg><span>Explode</span></button>
+                    <button class="action-btn" id="act-save"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg><span>Save</span></button>
+                    <button class="action-btn" id="act-random"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="1 4 1 10 7 10"/><polyline points="23 20 23 14 17 14"/><path d="M20.49 9A9 9 0 0 0 5.64 5.64L1 10m22 4l-4.64 4.36A9 9 0 0 1 3.51 15"/></svg><span>Random</span></button>
+                    <button class="action-btn" id="act-export"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg><span>Export</span></button>
+                    <button class="action-btn" id="act-import"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg><span>Import</span></button>
+                    <button class="action-btn danger" id="act-reset"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg><span>Reset</span></button>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <div class="input-bar">
+        <div class="input-inner">
+            <input type="text" class="text-field" id="textInput" maxlength="18" autocomplete="off" placeholder="type to morph" spellcheck="false">
+        </div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script>
+    (() => {
+        const CFG={N:40000,BG:2500,size:0.12,speed:1,spread:1,force:2.5,gravity:0,links:0,trail:0,autoRotate:false,mouseRepel:true,ripple:true,audio:false,magnetic:false,life:false,stars:true,shape:'heart',theme:'fire',type:'points',font:'Inter'};
+        const THEMES={fire:[[1,0.08,0.12],[1,0.38,0.02],[1,0.7,0],[0.95,0.12,0.28],[1,0.9,0.18]],ocean:[[0,0.72,1],[0,0.92,0.9],[0.08,0.3,0.95],[0,1,0.78],[0.25,0.55,1]],aurora:[[0,1,0.55],[0.15,0.6,1],[0.55,0,1],[0,1,0.88],[0.7,0.15,0.95]],sunset:[[1,0.25,0],[1,0,0.55],[1,0.58,0.08],[0.92,0.08,0.65],[1,0.78,0.28]],cyber:[[0,1,1],[1,0,1],[0.35,0,1],[0,1,0.55],[1,0.18,0.82]],gold:[[1,0.85,0],[1,0.65,0],[0.98,0.82,0.28],[1,0.48,0.08],[1,0.95,0.55]],candy:[[1,0.45,1],[0.45,1,0.88],[1,0.75,0.92],[0.65,0.92,1],[1,0.55,0.75]],rainbow:[[1,0,0.18],[1,0.6,0],[0.18,1,0],[0,0.55,1],[0.72,0,1]],custom:[[1,0,0.25],[1,0.5,0],[1,0.8,0]]};
+        const SHAPES={heart:i=>{const u=i/CFG.N*Math.PI*2,v=Math.acos(Math.random()*2-1),x=16*Math.pow(Math.sin(u),3)*Math.sin(v),y=(13*Math.cos(u)-5*Math.cos(2*u)-2*Math.cos(3*u)-Math.cos(4*u))*Math.sin(v),z=10*Math.cos(v);return[x*0.75,y*0.75,z*0.75];},sphere:()=>{const t=Math.random()*Math.PI*2,p=Math.acos(Math.random()*2-1),r=11;return[r*Math.sin(p)*Math.cos(t),r*Math.sin(p)*Math.sin(t),r*Math.cos(p)];},torus:()=>{const R=9,r=3.5,u=Math.random()*Math.PI*2,v=Math.random()*Math.PI*2;return[(R+r*Math.cos(v))*Math.cos(u),(R+r*Math.cos(v))*Math.sin(u),r*Math.sin(v)];},galaxy:()=>{const a=Math.floor(Math.random()*4),b=a/4*Math.PI*2,d=Math.pow(Math.random(),0.45)*14,ang=b+d*0.5+(Math.random()-0.5)*0.65,y=(Math.random()-0.5)*(2/(1+d*0.25));return[d*Math.cos(ang),y,d*Math.sin(ang)];},dna:()=>{const f=Math.random(),y=(f-0.5)*28,a1=f*Math.PI*7,a2=a1+Math.PI,r=6,rn=Math.random();if(rn<0.45)return[r*Math.cos(a1),y,r*Math.sin(a1)];if(rn<0.9)return[r*Math.cos(a2),y,r*Math.sin(a2)];const b=Math.random();return[r*Math.cos(a1)*b+r*Math.cos(a2)*(1-b),y,r*Math.sin(a1)*b+r*Math.sin(a2)*(1-b)];},cube:()=>{const s=9,f=Math.floor(Math.random()*6),a=(Math.random()-0.5)*2*s,b=(Math.random()-0.5)*2*s,faces=[[s,a,b],[-s,a,b],[a,s,b],[a,-s,b],[a,b,s],[a,b,-s]];return faces[f];},wave:()=>{const x=(Math.random()-0.5)*28,z=(Math.random()-0.5)*28,y=Math.sin(x*0.4)*Math.cos(z*0.4)*5;return[x,y,z];},star:()=>{const ang=Math.random()*Math.PI*2,r=Math.random()*12,spikes=5,sa=Math.floor(ang*spikes/Math.PI/2)*Math.PI*2/spikes,sf=1+Math.cos((ang-sa)*spikes)*0.5,fr=r*sf;return[fr*Math.cos(ang),fr*Math.sin(ang)*0.5,(Math.random()-0.5)*4];},spiral:()=>{const t=Math.random()*Math.PI*6,r=t*1.5,h=(Math.random()-0.5)*20;return[r*Math.cos(t),h,r*Math.sin(t)];}};
+        let scene,camera,renderer,pts,bg,lines,targets=new Float32Array(CFG.N*3),vel=new Float32Array(CFG.N*3),seeds=new Float32Array(CFG.N),lives=new Float32Array(CFG.N);
+        let mouse={x:-9999,y:-9999,down:false},drag={on:false,lx:0,ly:0},rot={x:0,y:0},autoR=0;
+        let isText=false,t=0,last=performance.now(),frames=0,audioCtx,analyser,dataArr,magPts=[];
+        const tCanvas=document.createElement('canvas'),tCtx=tCanvas.getContext('2d');
+        tCanvas.width=900;tCanvas.height=300;
+        const textInput=document.getElementById('textInput'),customBtn=document.getElementById('customBtn'),audiodot=document.getElementById('audiodot');
+        let baseColors=null;
+
+        function init(){
+            scene=new THREE.Scene();
+            camera=new THREE.PerspectiveCamera(65,innerWidth/innerHeight,0.1,800);
+            camera.position.z=35;
+            renderer=new THREE.WebGLRenderer({canvas:document.getElementById('canvas'),antialias:true,preserveDrawingBuffer:true});
+            renderer.setPixelRatio(Math.min(devicePixelRatio,2));
+            renderer.setSize(innerWidth,innerHeight);
+            renderer.setClearColor(0,1);
+
+            createPts();createBg();createLines();initLives();setTargets('');
+            setupEvents();setupUI();
+            document.getElementById('loader').classList.add('hide');
+            requestAnimationFrame(loop);
+        }
+
+        function createPts(){
+            const g=new THREE.BufferGeometry(),p=new Float32Array(CFG.N*3),c=new Float32Array(CFG.N*3);
+            const pal=THEMES[CFG.theme];
+            for(let i=0;i<CFG.N;i++){
+                p[i*3]=(Math.random()-0.5)*200;p[i*3+1]=(Math.random()-0.5)*200;p[i*3+2]=(Math.random()-0.5)*200;
+                const ci=Math.floor(Math.random()*pal.length);c[i*3]=pal[ci][0];c[i*3+1]=pal[ci][1];c[i*3+2]=pal[ci][2];
+                seeds[i]=Math.random();lives[i]=1;
+            }
+            baseColors=new Float32Array(c);
+            g.setAttribute('position',new THREE.BufferAttribute(p,3));
+            g.setAttribute('color',new THREE.BufferAttribute(c,3));
+            pts=new THREE.Points(g,new THREE.PointsMaterial({size:CFG.size,vertexColors:true,transparent:true,opacity:0.85,blending:THREE.AdditiveBlending}));
+            scene.add(pts);
+        }
+
+        function createBg(){
+            const g=new THREE.BufferGeometry(),p=new Float32Array(CFG.BG*3),c=new Float32Array(CFG.BG*3);
+            for(let i=0;i<CFG.BG;i++){
+                p[i*3]=(Math.random()-0.5)*600;p[i*3+1]=(Math.random()-0.5)*600;p[i*3+2]=(Math.random()-0.5)*600;
+                const b=0.12+Math.random()*0.22;c[i*3]=b*(0.7+Math.random()*0.3);c[i*3+1]=b*(0.7+Math.random()*0.3);c[i*3+2]=b;
+            }
+            g.setAttribute('position',new THREE.BufferAttribute(p,3));g.setAttribute('color',new THREE.BufferAttribute(c,3));
+            bg=new THREE.Points(g,new THREE.PointsMaterial({size:0.35,vertexColors:true,transparent:true,opacity:0.55,blending:THREE.AdditiveBlending}));
+            scene.add(bg);
+        }
+
+        function createLines(){
+            const g=new THREE.BufferGeometry();
+            g.setAttribute('position',new THREE.BufferAttribute(new Float32Array(CFG.N*6),3));
+            g.setAttribute('color',new THREE.BufferAttribute(new Float32Array(CFG.N*6),3));
+            lines=new THREE.LineSegments(g,new THREE.LineBasicMaterial({vertexColors:true,transparent:true,opacity:0.3,blending:THREE.AdditiveBlending}));
+            lines.visible=false;scene.add(lines);
+        }
+
+        function initLives(){for(let i=0;i<CFG.N;i++)lives[i]=0.5+Math.random()*0.5;}
+
+        function sampleText(txt){
+            if(!txt||!txt.trim())return null;
+            tCtx.clearRect(0,0,900,300);tCtx.fillStyle='#fff';
+            const fs=txt.length>10?68:txt.length>5?88:108;
+            tCtx.font=`900 ${fs}px "${CFG.font}", Inter, Arial Black, sans-serif`;
+            tCtx.textAlign='center';tCtx.textBaseline='middle';
+            tCtx.fillText(txt,450,150);
+            const d=tCtx.getImageData(0,0,900,300).data,pts=[];
+            for(let y=0;y<300;y++)for(let x=0;x<900;x++)if(d[(y*900+x)*4+3]>150)pts.push([(x-450)*0.1,-(y-150)*0.1,(Math.random()-0.5)*1.5]);
+            return pts.length?pts:null;
+        }
+
+        function setTargets(txt){
+            const pts=sampleText(txt);isText=!!pts;
+            if(isText){rot.x=0;rot.y=0;autoR=0;}
+            for(let i=0;i<CFG.N;i++){
+                let p;if(isText){const tp=pts[i%pts.length];p=[tp[0]+(Math.random()-0.5)*0.12,tp[1]+(Math.random()-0.5)*0.12,tp[2]+(Math.random()-0.5)*0.12];}
+                else{p=SHAPES[CFG.shape](i);const j=CFG.shape==='cube'?0.15:0.35;p=[p[0]+(Math.random()-0.5)*j,p[1]+(Math.random()-0.5)*j,p[2]+(Math.random()-0.5)*j];}
+                targets[i*3]=p[0]*CFG.spread;targets[i*3+1]=p[1]*CFG.spread;targets[i*3+2]=p[2]*CFG.spread;
+            }
+        }
+
+        function applyTheme(){
+            const pal=THEMES[CFG.theme],c=pts.geometry.attributes.color.array;
+            for(let i=0;i<CFG.N;i++){
+                const ci=Math.floor(Math.random()*pal.length),v=0.8+Math.random()*0.4;
+                const r=Math.min(1,pal[ci][0]*v),g=Math.min(1,pal[ci][1]*v),b=Math.min(1,pal[ci][2]*v);
+                c[i*3]=r;c[i*3+1]=g;c[i*3+2]=b;
+                if(baseColors){baseColors[i*3]=r;baseColors[i*3+1]=g;baseColors[i*3+2]=b;}
+            }
+            pts.geometry.attributes.color.needsUpdate=true;
+        }
+
+        async function initAudio(){
+            try{
+                audioCtx=new(window.AudioContext||window.webkitAudioContext)();
+                if(audioCtx.state==='suspended') await audioCtx.resume();
+                const s=await navigator.mediaDevices.getUserMedia({audio:true});
+                const src=audioCtx.createMediaStreamSource(s);
+                analyser=audioCtx.createAnalyser();
+                analyser.fftSize=256;
+                src.connect(analyser);
+                dataArr=new Uint8Array(analyser.frequencyBinCount);
+                audiodot.classList.add('active');
+            }catch(e){
+                CFG.audio=false;
+                const audioToggle=document.querySelector('.toggle-item[data-toggle="audio"]');
+                if(audioToggle)audioToggle.classList.remove('active');
+                audiodot.classList.remove('active');
+                console.warn('Audio initialization failed:',e);
+            }
+        }
+        function getAudio(){if(!analyser||!CFG.audio)return 0;analyser.getByteFrequencyData(dataArr);let sum=0;for(let i=0;i<dataArr.length;i++)sum+=dataArr[i];return(sum/dataArr.length)/255;}
+
+        function loop(now){
+            requestAnimationFrame(loop);
+            const dt=Math.min((now-last)/1000,0.05);
+            last=now;
+            t+=dt*CFG.speed;
+            frames++;
+            if(frames%45===0)document.getElementById('fps').textContent=Math.max(1,Math.round(1/Math.max(dt,0.0001)));
+
+            const audioL=getAudio(),pos=pts.geometry.attributes.position.array,col=pts.geometry.attributes.color.array,pal=THEMES[CFG.theme];
+            const v=new THREE.Vector3(mouse.x,mouse.y,0.5);
+            v.unproject(camera);
+            const dir=v.sub(camera.position).normalize();
+            const safeDirZ=Math.abs(dir.z)<0.0001?-0.0001:dir.z;
+            const dist=-camera.position.z/safeDirZ;
+            const mw=camera.position.clone().add(dir.multiplyScalar(dist));
+
+            if(CFG.magnetic&&mouse.down){
+                magPts.push({x:mw.x,y:mw.y,z:mw.z,s:1});
+                if(magPts.length>5)magPts.shift();
+            }
+
+            let ci=0,lp=lines.geometry.attributes.position.array,lc=lines.geometry.attributes.color.array;
+            for(let i=0;i<CFG.N;i++){
+                const i3=i*3;
+                let px=pos[i3],py=pos[i3+1],pz=pos[i3+2],tx=targets[i3],ty=targets[i3+1],tz=targets[i3+2],s=seeds[i];
+
+                if(CFG.audio&&audioL>0.1){
+                    const f=audioL*5;
+                    vel[i3]+=(Math.random()-0.5)*f;
+                    vel[i3+1]+=(Math.random()-0.5)*f;
+                    vel[i3+2]+=(Math.random()-0.5)*f;
+                }
+
+                if(CFG.mouseRepel){
+                    const mx=px-mw.x,my=py-mw.y,mz=pz-mw.z,md2=mx*mx+my*my+mz*mz;
+                    if(md2<100){
+                        const md=Math.sqrt(md2)+0.001,f=(10-md)/10,m=mouse.down?-3:CFG.force;
+                        vel[i3]+=(mx/md)*f*m;
+                        vel[i3+1]+=(my/md)*f*m;
+                        vel[i3+2]+=(mz/md)*f*m;
+                    }
+                }
+
+                if(CFG.magnetic)for(const mp of magPts){
+                    const dx=mp.x-px,dy=mp.y-py,dz=mp.z-pz,d2=dx*dx+dy*dy+dz*dz;
+                    if(d2<400){
+                        const d=Math.sqrt(d2)+0.001,f=mp.s*50/(d2+1);
+                        vel[i3]+=(dx/d)*f;
+                        vel[i3+1]+=(dy/d)*f;
+                        vel[i3+2]+=(dz/d)*f;
+                    }
+                }
+
+                vel[i3]+=(tx-px)*0.085;
+                vel[i3+1]+=(ty-py)*0.085;
+                vel[i3+2]+=(tz-pz)*0.085;
+
+                if(CFG.ripple){
+                    const dc=Math.sqrt(px*px+py*py+pz*pz)+0.001,wv=Math.sin(dc*0.28-t*2.8)*0.025;
+                    vel[i3]+=wv*(px/dc);
+                    vel[i3+1]+=wv*(py/dc);
+                }
+
+                if(CFG.gravity!==0){
+                    vel[i3+1]-=CFG.gravity*0.5;
+                    if(py<-20&&CFG.gravity>0){vel[i3+1]*=-0.8;py=-20;}
+                }
+
+                vel[i3]+=Math.sin(t*1.3+s*7.1)*0.003;
+                vel[i3+1]+=Math.cos(t*1.1+s*5.7)*0.003;
+                vel[i3+2]+=Math.sin(t*0.9+s*4.3)*0.002;
+                vel[i3]*=0.8;vel[i3+1]*=0.8;vel[i3+2]*=0.8;
+
+                pos[i3]=px+vel[i3];
+                pos[i3+1]=py+vel[i3+1];
+                pos[i3+2]=pz+vel[i3+2];
+
+                if(CFG.theme==='rainbow'){
+                    const h=(s+t*0.18)%1,cci=Math.floor(h*pal.length)%pal.length,ni=(cci+1)%pal.length,bl=(h*pal.length)%1;
+                    col[i3]=pal[cci][0]+(pal[ni][0]-pal[cci][0])*bl;
+                    col[i3+1]=pal[cci][1]+(pal[ni][1]-pal[cci][1])*bl;
+                    col[i3+2]=pal[cci][2]+(pal[ni][2]-pal[cci][2])*bl;
+                }else if((i&255)===(Math.floor(t*55)&255)){
+                    const cci=Math.floor(Math.random()*pal.length),vv=0.82+Math.random()*0.36;
+                    const r=Math.min(1,pal[cci][0]*vv),g=Math.min(1,pal[cci][1]*vv),b=Math.min(1,pal[cci][2]*vv);
+                    col[i3]=r;col[i3+1]=g;col[i3+2]=b;
+                    if(baseColors){baseColors[i3]=r;baseColors[i3+1]=g;baseColors[i3+2]=b;}
+                }else if(baseColors){
+                    col[i3]=baseColors[i3];
+                    col[i3+1]=baseColors[i3+1];
+                    col[i3+2]=baseColors[i3+2];
+                }
+
+                if(CFG.life){
+                    lives[i]-=dt*0.1;
+                    if(lives[i]<=0){
+                        lives[i]=0.5+Math.random()*0.5;
+                        pos[i3]=(Math.random()-0.5)*50;
+                        pos[i3+1]=(Math.random()-0.5)*50;
+                        pos[i3+2]=(Math.random()-0.5)*50;
+                    }
+                    const life=Math.max(0.15,lives[i]);
+                    col[i3]*=life;
+                    col[i3+1]*=life;
+                    col[i3+2]*=life;
+                }
+
+                if(CFG.links>0&&i%10===0){
+                    let c=0;
+                    for(let j=i+1;j<CFG.N&&c<CFG.links;j+=10){
+                        const j3=j*3,dx=pos[i3]-pos[j3],dy=pos[i3+1]-pos[j3+1],dz=pos[i3+2]-pos[j3+2],d2=dx*dx+dy*dy+dz*dz;
+                        if(d2<25&&ci*6+5<lp.length){
+                            const d=Math.sqrt(d2),a=1-d/5;
+                            lp[ci*6]=pos[i3];lp[ci*6+1]=pos[i3+1];lp[ci*6+2]=pos[i3+2];
+                            lp[ci*6+3]=pos[j3];lp[ci*6+4]=pos[j3+1];lp[ci*6+5]=pos[j3+2];
+                            lc[ci*6]=lc[ci*6+3]=col[i3]*a;
+                            lc[ci*6+1]=lc[ci*6+4]=col[i3+1]*a;
+                            lc[ci*6+2]=lc[ci*6+5]=col[i3+2]*a;
+                            ci++;c++;
+                        }
+                    }
+                }
+            }
+
+            pts.geometry.attributes.position.needsUpdate=true;
+            pts.geometry.attributes.color.needsUpdate=true;
+
+            if(CFG.links>0){
+                lines.visible=true;
+                lines.geometry.attributes.position.needsUpdate=true;
+                lines.geometry.attributes.color.needsUpdate=true;
+                lines.geometry.setDrawRange(0,ci*2);
+            }else{
+                lines.visible=false;
+                lines.geometry.setDrawRange(0,0);
+            }
+
+            if(isText){rot.y*=0.93;rot.x*=0.93;}else if(CFG.autoRotate)autoR+=dt*0.5;
+            pts.rotation.y=rot.y+Math.sin(autoR)*0.35;
+            pts.rotation.x=rot.x+Math.sin(t*0.12)*0.08;
+            lines.rotation.y=pts.rotation.y;
+            lines.rotation.x=pts.rotation.x;
+            bg.visible=CFG.stars;
+            if(CFG.stars){bg.rotation.y=t*0.008;bg.rotation.x=t*0.004;}
+            magPts=magPts.filter(m=>{m.s*=0.95;return m.s>0.01;});
+            renderer.render(scene,camera);
+        }
+
+        function isUI(el){return !!(el && el.closest && el.closest('.settings-panel,.icon-btn,.input-bar,.brand,.top-stats'));}
+
+        function setupEvents(){
+            addEventListener('resize',()=>{
+                camera.aspect=innerWidth/innerHeight;
+                camera.updateProjectionMatrix();
+                renderer.setSize(innerWidth,innerHeight);
+            });
+
+            addEventListener('mousemove',e=>{
+                mouse.x=(e.clientX/innerWidth)*2-1;
+                mouse.y=-(e.clientY/innerHeight)*2+1;
+                if(drag.on&&!isUI(e.target)){
+                    rot.y+=(e.clientX-drag.lx)*0.006;
+                    rot.x+=(e.clientY-drag.ly)*0.006;
+                    rot.x=Math.max(-1.2,Math.min(1.2,rot.x));
+                    drag.lx=e.clientX;drag.ly=e.clientY;
+                }
+            });
+
+            addEventListener('mousedown',e=>{
+                if(isUI(e.target))return;
+                mouse.down=true;drag.on=true;drag.lx=e.clientX;drag.ly=e.clientY;
+                e.preventDefault();
+            });
+
+            addEventListener('mouseup',()=>{mouse.down=false;drag.on=false;});
+            addEventListener('mouseleave',()=>{mouse.down=false;drag.on=false;});
+
+            addEventListener('wheel',e=>{
+                if(isUI(e.target))return;
+                camera.position.z=Math.max(12,Math.min(70,camera.position.z+e.deltaY*0.03));
+            },{passive:true});
+
+            addEventListener('touchstart',e=>{
+                const touch=e.touches && e.touches[0];
+                if(!touch||isUI(touch.target))return;
+                if(e.touches.length===1){
+                    mouse.down=true;drag.on=true;drag.lx=touch.clientX;drag.ly=touch.clientY;
+                }
+            },{passive:true});
+
+            addEventListener('touchmove',e=>{
+                const touch=e.touches && e.touches[0];
+                if(!touch)return;
+                mouse.x=(touch.clientX/innerWidth)*2-1;
+                mouse.y=-(touch.clientY/innerHeight)*2+1;
+                if(drag.on&&!isUI(touch.target)){
+                    rot.y+=(touch.clientX-drag.lx)*0.006;
+                    rot.x+=(touch.clientY-drag.ly)*0.006;
+                    rot.x=Math.max(-1.2,Math.min(1.2,rot.x));
+                    drag.lx=touch.clientX;drag.ly=touch.clientY;
+                }
+            },{passive:true});
+
+            addEventListener('touchend',()=>{mouse.down=false;drag.on=false;});
+            addEventListener('touchcancel',()=>{mouse.down=false;drag.on=false;});
+        }
+
+        function setupUI(){
+            const btn=document.getElementById('settingsBtn'),panel=document.getElementById('panel'),overlay=document.getElementById('overlay'),closeBtn=document.getElementById('settingsClose');
+            const fullscreenBtn=document.getElementById('fullscreenBtn');
+            const setPanelState=(open)=>{
+                panel.classList.toggle('open',open);
+                overlay.classList.toggle('show',open);
+                btn.classList.toggle('active',open);
+                document.body.style.overflow=open?'hidden':'';
+            };
+            const openPanel=()=>setPanelState(true);
+            const closePanel=()=>setPanelState(false);
+            const toggle=()=>setPanelState(!panel.classList.contains('open'));
+
+            btn.onclick=e=>{e.stopPropagation();toggle();};
+            overlay.onclick=closePanel;
+            if(closeBtn)closeBtn.onclick=closePanel;
+            panel.onclick=e=>e.stopPropagation();
+            document.addEventListener('keydown',e=>{if(e.key==='Escape'&&panel.classList.contains('open'))closePanel();});
+
+            let swipeStartX=0,swipeStartY=0;
+            const panelHeader=panel.querySelector('.panel-header');
+            if(panelHeader){
+                panelHeader.addEventListener('touchstart',e=>{
+                    if(!e.touches.length)return;
+                    swipeStartX=e.touches[0].clientX;
+                    swipeStartY=e.touches[0].clientY;
+                },{passive:true});
+                panelHeader.addEventListener('touchmove',e=>{
+                    if(!e.touches.length)return;
+                    const dx=e.touches[0].clientX-swipeStartX;
+                    const dy=Math.abs(e.touches[0].clientY-swipeStartY);
+                    if(dx>70&&dy<40&&panel.classList.contains('open'))closePanel();
+                },{passive:true});
+            }
+
+            const syncFullscreenButton=()=>{
+                fullscreenBtn.classList.toggle('active',!!document.fullscreenElement);
+                fullscreenBtn.title=document.fullscreenElement?'Exit fullscreen':'Fullscreen';
+            };
+            fullscreenBtn.onclick=async()=>{
+                try{
+                    if(!document.fullscreenElement) await document.documentElement.requestFullscreen();
+                    else await document.exitFullscreen();
+                }catch(e){
+                    console.warn('Fullscreen action failed:',e);
+                }
+            };
+            document.addEventListener('fullscreenchange',syncFullscreenButton);
+            syncFullscreenButton();
+
+            textInput.style.fontFamily=`"${CFG.font}", Inter, sans-serif`;
+            textInput.oninput=e=>setTargets(e.target.value);
+            textInput.onkeydown=e=>{if(e.key==='Escape'){e.target.value='';setTargets('');}};
+
+            document.querySelectorAll('.shape-item').forEach(el=>el.onclick=()=>{
+                document.querySelectorAll('.shape-item').forEach(x=>x.classList.remove('active'));
+                el.classList.add('active');
+                CFG.shape=el.dataset.shape;
+                if(!textInput.value.trim())setTargets('');
+            });
+
+            document.querySelectorAll('.font-item').forEach(el=>el.onclick=()=>{
+                document.querySelectorAll('.font-item').forEach(x=>x.classList.remove('active'));
+                el.classList.add('active');
+                CFG.font=el.dataset.font;
+                textInput.style.fontFamily=`"${CFG.font}", Inter, sans-serif`;
+                if(textInput.value.trim())setTargets(textInput.value);
+            });
+
+            document.querySelectorAll('.type-option').forEach(el=>el.onclick=()=>{
+                document.querySelectorAll('.type-option').forEach(x=>x.classList.remove('active'));
+                el.classList.add('active');
+                CFG.type=el.dataset.type;
+                pts.material.size=CFG.size*(CFG.type==='lines'?0.5:1);
+            });
+
+            document.querySelectorAll('.color-swatch:not(.custom)').forEach(el=>el.onclick=()=>{
+                document.querySelectorAll('.color-swatch').forEach(x=>x.classList.remove('active'));
+                el.classList.add('active');
+                CFG.theme=el.dataset.theme;
+                applyTheme();
+            });
+
+            const c1=document.getElementById('c1'),c2=document.getElementById('c2'),c3=document.getElementById('c3');
+            const hex2rgb=h=>[parseInt(h.slice(1,3),16)/255,parseInt(h.slice(3,5),16)/255,parseInt(h.slice(5,7),16)/255];
+            const syncCustomColorUI=()=>{
+                c1.parentElement.style.background=c1.value;
+                c2.parentElement.style.background=c2.value;
+                c3.parentElement.style.background=c3.value;
+                customBtn.style.background=`linear-gradient(135deg, ${c1.value}, ${c2.value}, ${c3.value})`;
+                customBtn.style.borderStyle='solid';
+                customBtn.style.borderColor='rgba(255,255,255,0.14)';
+            };
+            const updateCustom=()=>{
+                syncCustomColorUI();
+                THEMES.custom=[hex2rgb(c1.value),hex2rgb(c2.value),hex2rgb(c3.value)];
+                CFG.theme='custom';
+                document.querySelectorAll('.color-swatch').forEach(x=>x.classList.remove('active'));
+                customBtn.classList.add('active');
+                applyTheme();
+            };
+            [c1,c2,c3].forEach(i=>i.oninput=updateCustom);
+            customBtn.onclick=updateCustom;
+            syncCustomColorUI();
+
+            const sliders={
+                's-size':v=>{CFG.size=+v;pts.material.size=+v*(CFG.type==='lines'?0.5:1);document.getElementById('v-size').textContent=(+v).toFixed(2);},
+                's-speed':v=>{CFG.speed=+v;document.getElementById('v-speed').textContent=(+v).toFixed(1);},
+                's-spread':v=>{CFG.spread=+v;setTargets(textInput.value);document.getElementById('v-spread').textContent=(+v).toFixed(1);},
+                's-force':v=>{CFG.force=+v;document.getElementById('v-force').textContent=(+v).toFixed(1);},
+                's-grav':v=>{CFG.gravity=+v;document.getElementById('v-grav').textContent=(+v).toFixed(1);},
+                's-link':v=>{CFG.links=+v;document.getElementById('v-link').textContent=v;}
+            };
+            Object.entries(sliders).forEach(([id,fn])=>{
+                const el=document.getElementById(id);
+                if(el)el.oninput=e=>fn(e.target.value);
+            });
+
+            const toggles={
+                rotate:v=>CFG.autoRotate=v,
+                repel:v=>CFG.mouseRepel=v,
+                ripple:v=>CFG.ripple=v,
+                audio:async v=>{CFG.audio=v;if(v&&!audioCtx)await initAudio();if(!v)audiodot.classList.remove('active');},
+                magnetic:v=>CFG.magnetic=v,
+                life:v=>{CFG.life=v;if(!v&&baseColors){const c=pts.geometry.attributes.color.array;for(let i=0;i<c.length;i++)c[i]=baseColors[i];pts.geometry.attributes.color.needsUpdate=true;}},
+                stars:v=>CFG.stars=v
+            };
+            document.querySelectorAll('.toggle-item').forEach(el=>el.onclick=()=>{
+                el.classList.toggle('active');
+                const handler=toggles[el.dataset.toggle];
+                if(handler)handler(el.classList.contains('active'));
+            });
+
+            const presets={
+                default:{speed:1,size:0.12,spread:1,force:2.5,gravity:0,links:0,theme:'fire'},
+                neon:{speed:2,size:0.2,spread:1.2,force:4,gravity:0,links:2,theme:'cyber'},
+                calm:{speed:0.5,size:0.08,spread:0.8,force:1,gravity:0,links:0,theme:'ocean'},
+                chaos:{speed:3,size:0.15,spread:1.5,force:8,gravity:-0.5,links:5,theme:'fire'}
+            };
+            document.querySelectorAll('.preset-chip').forEach(el=>el.onclick=()=>{
+                const p=presets[el.dataset.preset];
+                if(!p)return;
+                CFG.speed=p.speed;CFG.size=p.size;CFG.spread=p.spread;CFG.force=p.force;CFG.gravity=p.gravity;CFG.links=p.links;CFG.theme=p.theme;
+                document.getElementById('s-speed').value=p.speed;document.getElementById('v-speed').textContent=(+p.speed).toFixed(1);
+                document.getElementById('s-size').value=p.size;document.getElementById('v-size').textContent=(+p.size).toFixed(2);
+                document.getElementById('s-spread').value=p.spread;document.getElementById('v-spread').textContent=(+p.spread).toFixed(1);
+                document.getElementById('s-force').value=p.force;document.getElementById('v-force').textContent=(+p.force).toFixed(1);
+                document.getElementById('s-grav').value=p.gravity;document.getElementById('v-grav').textContent=(+p.gravity).toFixed(1);
+                document.getElementById('s-link').value=p.links;document.getElementById('v-link').textContent=p.links;
+                pts.material.size=p.size*(CFG.type==='lines'?0.5:1);
+                document.querySelectorAll('.color-swatch').forEach(x=>x.classList.toggle('active',x.dataset.theme===p.theme));
+                applyTheme();
+                setTargets(textInput.value);
+                document.querySelectorAll('.preset-chip').forEach(x=>x.classList.remove('active'));
+                el.classList.add('active');
+            });
+
+            document.getElementById('act-explode').onclick=()=>{
+                for(let i=0;i<CFG.N;i++){
+                    vel[i*3]=(Math.random()-0.5)*50;
+                    vel[i*3+1]=(Math.random()-0.5)*50;
+                    vel[i*3+2]=(Math.random()-0.5)*50;
+                }
+                const f=document.createElement('div');
+                f.style.cssText='position:fixed;inset:0;background:white;opacity:.25;pointer-events:none;z-index:9999;transition:opacity .4s';
+                document.body.appendChild(f);
+                setTimeout(()=>f.style.opacity=0,30);
+                setTimeout(()=>f.remove(),430);
+            };
+
+            document.getElementById('act-save').onclick=()=>{
+                renderer.render(scene,camera);
+                const a=document.createElement('a');
+                a.download=`particles-${Date.now()}.png`;
+                a.href=renderer.domElement.toDataURL();
+                a.click();
+            };
+
+            document.getElementById('act-random').onclick=()=>{
+                const s=Object.keys(SHAPES),themes=Object.keys(THEMES).filter(x=>x!=='custom');
+                CFG.shape=s[Math.floor(Math.random()*s.length)];
+                CFG.theme=themes[Math.floor(Math.random()*themes.length)];
+                CFG.speed=0.5+Math.random()*2;
+                CFG.size=0.05+Math.random()*0.15;
+                document.querySelectorAll('.shape-item').forEach(x=>x.classList.toggle('active',x.dataset.shape===CFG.shape));
+                document.querySelectorAll('.color-swatch:not(.custom)').forEach(x=>x.classList.toggle('active',x.dataset.theme===CFG.theme));
+                document.getElementById('s-speed').value=CFG.speed;document.getElementById('v-speed').textContent=CFG.speed.toFixed(1);
+                document.getElementById('s-size').value=CFG.size;document.getElementById('v-size').textContent=CFG.size.toFixed(2);
+                pts.material.size=CFG.size*(CFG.type==='lines'?0.5:1);
+                applyTheme();
+                setTargets(textInput.value);
+            };
+
+            document.getElementById('act-export').onclick=()=>{
+                const d={cfg:CFG,text:textInput.value,colors:[c1.value,c2.value,c3.value]};
+                const b=new Blob([JSON.stringify(d,null,2)],{type:'application/json'});
+                const u=URL.createObjectURL(b);
+                const a=document.createElement('a');
+                a.href=u;a.download=`preset-${Date.now()}.json`;a.click();
+                URL.revokeObjectURL(u);
+            };
+
+            document.getElementById('act-import').onclick=()=>{
+                const i=document.createElement('input');
+                i.type='file';i.accept='.json';
+                i.onchange=e=>{
+                    const file=e.target.files[0];
+                    if(!file)return;
+                    const r=new FileReader();
+                    r.onload=ev=>{
+                        try{
+                            const d=JSON.parse(ev.target.result);
+                            if(d.cfg)Object.assign(CFG,d.cfg);
+                            if(d.colors){
+                                c1.value=d.colors[0];c2.value=d.colors[1];c3.value=d.colors[2];
+                                THEMES.custom=[hex2rgb(c1.value),hex2rgb(c2.value),hex2rgb(c3.value)];
+                                syncCustomColorUI();
+                            }
+                            textInput.value=d.text||'';
+                            document.querySelectorAll('.shape-item').forEach(x=>x.classList.toggle('active',x.dataset.shape===CFG.shape));
+                            document.querySelectorAll('.font-item').forEach(x=>x.classList.toggle('active',x.dataset.font===CFG.font));
+                            document.querySelectorAll('.type-option').forEach(x=>x.classList.toggle('active',x.dataset.type===CFG.type));
+                            document.querySelectorAll('.color-swatch').forEach(x=>x.classList.toggle('active',x.dataset.theme===CFG.theme));
+                            document.getElementById('s-speed').value=CFG.speed;document.getElementById('v-speed').textContent=(+CFG.speed).toFixed(1);
+                            document.getElementById('s-size').value=CFG.size;document.getElementById('v-size').textContent=(+CFG.size).toFixed(2);
+                            document.getElementById('s-spread').value=CFG.spread;document.getElementById('v-spread').textContent=(+CFG.spread).toFixed(1);
+                            document.getElementById('s-force').value=CFG.force;document.getElementById('v-force').textContent=(+CFG.force).toFixed(1);
+                            document.getElementById('s-grav').value=CFG.gravity;document.getElementById('v-grav').textContent=(+CFG.gravity).toFixed(1);
+                            document.getElementById('s-link').value=CFG.links;document.getElementById('v-link').textContent=CFG.links;
+                            textInput.style.fontFamily=`"${CFG.font}", Inter, sans-serif`;
+                            pts.material.size=CFG.size*(CFG.type==='lines'?0.5:1);
+                            document.querySelectorAll('.toggle-item').forEach(el=>{
+                                const key=el.dataset.toggle;
+                                const state=key==='rotate'?CFG.autoRotate:key==='repel'?CFG.mouseRepel:key==='ripple'?CFG.ripple:key==='audio'?CFG.audio:key==='magnetic'?CFG.magnetic:key==='life'?CFG.life:key==='stars'?CFG.stars:false;
+                                el.classList.toggle('active',!!state);
+                            });
+                            applyTheme();
+                            setTargets(d.text||'');
+                        }catch(e){
+                            console.warn('Invalid preset file:',e);
+                            alert('Invalid file');
+                        }
+                    };
+                    r.readAsText(file);
+                };
+                i.click();
+            };
+
+            document.getElementById('act-reset').onclick=()=>location.reload();
+        }
+
+        init();
+    })();
+    </script>
+</body>
+</html>
