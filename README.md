@@ -1,13 +1,16 @@
-# 3D Particle System
+# 3D Particle System ✨
 
-A polished single-file interactive particle experience built with **HTML**, **CSS**, **JavaScript**, and **Three.js**.
-It combines text morphing, multiple particle shapes, theme controls, font switching, audio-reactive motion, magnetic interaction, export/import presets, fullscreen mode, and a responsive settings panel designed for desktop and mobile devices.
+<p align="center">
+  <img src="Screenshot.png" alt="3D Particle System preview" width="100%">
+</p>
+
+A polished single-file interactive particle experience built with **HTML**, **CSS**, **JavaScript**, and **Three.js**. It combines text morphing, procedural particle shapes, theme controls, font switching, audio-reactive motion, magnetic interaction, export/import presets, fullscreen mode, and a responsive settings panel designed for desktop and mobile devices.
 
 **Live branding:** [@SudhirDevOps1](https://github.com/SudhirDevOps1)
 
 ---
 
-## Overview
+## 🌈 Overview
 
 This project renders a high-density 3D particle field that can:
 
@@ -17,11 +20,11 @@ This project renders a high-density 3D particle field that can:
 - react to mouse, touch, gravity, ripple motion, and microphone input
 - be configured through a modern responsive side panel
 
-Everything runs from a single `index.html` file, making it easy to host on **GitHub Pages**, Netlify, Vercel, or any static web server.
+Everything runs from a single `index.html` file, making it easy to host on **GitHub Pages**, **Netlify**, **Vercel**, or any static web server.
 
 ---
 
-## Highlights
+## ✨ Highlights
 
 - **40,000 particles** rendered with Three.js
 - **9 built-in shapes**
@@ -39,7 +42,15 @@ Everything runs from a single `index.html` file, making it easy to host on **Git
 
 ---
 
-## Feature Breakdown
+## 🎨 Visual Preview
+
+The image below is loaded from the same folder as this `README.md`.
+
+![Screenshot preview](Screenshot.png)
+
+---
+
+## 🧩 Feature Breakdown
 
 ### 1) Particle Morphing
 The particle system can morph between default shapes or typed text.
@@ -56,8 +67,7 @@ The particle system can morph between default shapes or typed text.
 - Spiral
 
 ### 2) Font Switching
-Text morphing is not limited to a single style.
-The app includes 10 fonts:
+Text morphing is not limited to a single style. The app includes 10 fonts:
 
 - Inter
 - Playfair Display
@@ -97,7 +107,7 @@ Included interactive behaviors:
 - Auto rotate
 - Magnetic attractors
 - Particle life / respawn behavior
-- Audio reactive movement
+- Audio-reactive movement
 
 ### 5) Utility Actions
 The action panel supports:
@@ -110,7 +120,7 @@ The action panel supports:
 
 ---
 
-## UI Structure
+## 🖥️ UI Structure
 
 ### Top Left
 - Particle count indicator
@@ -125,9 +135,8 @@ The action panel supports:
 - Compact text input field for morphing text
 
 ### Bottom Left
-- Small clickable branding:
-  - **@SudhirDevOps1**
-  - opens GitHub in a new tab
+- Small clickable branding
+- **@SudhirDevOps1** opens GitHub in a new tab
 
 ### Right Panel
 Responsive settings drawer containing:
@@ -143,12 +152,12 @@ Responsive settings drawer containing:
 
 ---
 
-## Controls
+## 🎮 Controls
 
 ### Mouse / Touch
 - **Move cursor** → repels particles when enabled
 - **Mouse drag** → rotate particle view
-- **Touch drag** → rotate on mobile/tablet
+- **Touch drag** → rotate on mobile and tablet
 - **Mouse wheel** → zoom in/out
 
 ### Keyboard
@@ -163,20 +172,20 @@ Responsive settings drawer containing:
 
 ---
 
-## Parameters
+## ⚙️ Parameters
 
 The settings panel includes these live controls:
 
-- **Size** — particle point size
-- **Speed** — motion intensity over time
-- **Spread** — scale of the target shape/text
-- **Force** — mouse interaction strength
-- **Gravity** — vertical pull or lift
-- **Links** — line connections between particles
+- **Size** - particle point size
+- **Speed** - motion intensity over time
+- **Spread** - scale of the target shape/text
+- **Force** - mouse interaction strength
+- **Gravity** - vertical pull or lift
+- **Links** - line connections between particles
 
 ---
 
-## Effects Toggles
+## 🌟 Effects Toggles
 
 - **Auto Rotate**
 - **Mouse Repel**
@@ -188,7 +197,7 @@ The settings panel includes these live controls:
 
 ---
 
-## Presets
+## 🎛️ Presets
 
 The project includes quick presets:
 
@@ -201,7 +210,7 @@ These adjust theme and motion parameters without removing the rest of the functi
 
 ---
 
-## Technical Notes
+## 🧠 Technical Notes
 
 ### Stack
 - HTML5
@@ -230,17 +239,18 @@ For best performance:
 
 ---
 
-## Project Structure
+## 📁 Project Structure
 
 ```text
 .
 ├── index.html   # Complete single-page app
-└── README.md    # Project documentation
+├── README.md    # Project documentation
+└── Screenshot.png
 ```
 
 ---
 
-## Running Locally
+## 🚀 Running Locally
 
 ### Option 1: Open directly
 Open `index.html` in your browser.
@@ -262,10 +272,10 @@ Then open the shown localhost URL.
 
 ---
 
-## Deploying to GitHub Pages
+## 🌍 Deploying to GitHub Pages
 
 1. Create a GitHub repository
-2. Upload `index.html` and `README.md`
+2. Upload `index.html`, `README.md`, and `Screenshot.png`
 3. Commit and push
 4. Open repository **Settings**
 5. Go to **Pages**
@@ -276,7 +286,7 @@ Because this is a static single-file app, it works well with GitHub Pages.
 
 ---
 
-## Customization Guide
+## 🛠️ Customization Guide
 
 ### Change default shape
 In `index.html`, update:
@@ -300,7 +310,7 @@ N:40000
 ```
 
 ### Add a new theme
-Extend the `THEMES` object with RGB arrays in 0–1 range.
+Extend the `THEMES` object with RGB arrays in 0-1 range.
 
 ### Add a new font
 1. Import the font in the CSS `@import`
@@ -312,10 +322,10 @@ Extend the `SHAPES` object with a function returning `[x, y, z]`.
 
 ---
 
-## Performance Notes
+## ⚡ Performance Notes
 
-This project is tuned to feel smooth while preserving visual density.
-Still, performance may vary based on:
+This project is tuned to feel smooth while preserving visual density. Still, performance may vary based on:
+
 - GPU power
 - browser implementation
 - mobile device thermal limits
@@ -330,9 +340,10 @@ If performance drops on low-end devices:
 
 ---
 
-## Recent Improvements
+## 🔧 Recent Improvements
 
 The current version includes stability improvements such as:
+
 - safer fullscreen handling
 - safer audio initialization fallback
 - improved touch and panel behavior
@@ -344,7 +355,7 @@ The current version includes stability improvements such as:
 
 ---
 
-## Credits
+## 👤 Credits
 
 Built with Three.js and custom UI/interaction logic.
 
@@ -354,7 +365,7 @@ Branding and profile link:
 
 ---
 
-## License
+## 📜 License
 
 You can use and modify this project for personal or portfolio use.
 If you publish a modified version, keeping visible credit is appreciated.
