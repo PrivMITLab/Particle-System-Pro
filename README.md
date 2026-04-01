@@ -1,7 +1,7 @@
 # 3D Particle System ✨
 
 <p align="center">
-  <img src="Screenshot.png" alt="3D Particle System preview" width="100%">
+  <img src="Screenshot1.png" alt="3D Particle System preview" width="100%">
 </p>
 
 A polished single-file interactive particle experience built with **HTML**, **CSS**, **JavaScript**, and **Three.js**. It combines text morphing, procedural particle shapes, theme controls, font switching, audio-reactive motion, magnetic interaction, export/import presets, fullscreen mode, and a responsive settings panel designed for desktop and mobile devices.
