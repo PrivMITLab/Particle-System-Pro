@@ -160,6 +160,7 @@
         .settings-panel.open { transform: translateX(0); }
 
         .panel-header {
+            position: relative;
             padding: 22px 24px 18px;
             border-bottom: 1px solid var(--border);
             flex-shrink: 0;
@@ -175,6 +176,35 @@
         .panel-subtitle {
             font-size: 11px;
             color: var(--text-tertiary);
+        }
+
+        .settings-close {
+            position: absolute;
+            top: 14px;
+            right: 14px;
+            width: 28px;
+            height: 28px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            color: var(--text-secondary);
+            cursor: pointer;
+            transition: all 0.2s;
+            z-index: 10;
+        }
+        .settings-close:hover {
+            background: var(--surface-hover);
+            color: var(--text);
+            border-color: var(--border-strong);
+        }
+        .settings-close svg { width: 14px; height: 14px; }
+
+        @media (max-width: 640px) {
+            .settings-close { top: 12px; right: 12px; width: 32px; height: 32px; }
+            .settings-close svg { width: 16px; height: 16px; }
         }
 
         .panel-scroll {
@@ -520,6 +550,12 @@
     <div class="settings-overlay" id="overlay"></div>
     <div class="settings-panel" id="panel">
         <div class="panel-header">
+            <button class="settings-close" id="settingsClose" title="Close settings" aria-label="Close settings">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <line x1="18" y1="6" x2="6" y2="18"></line>
+                    <line x1="6" y1="6" x2="18" y2="18"></line>
+                </svg>
+            </button>
             <div class="panel-title">Controls</div>
             <div class="panel-subtitle">Customize your particle system</div>
         </div>
@@ -834,11 +870,32 @@
         }
 
         function setupUI(){
-            const btn=document.getElementById('settingsBtn'),panel=document.getElementById('panel'),overlay=document.getElementById('overlay');
-            const toggle=()=>{const o=panel.classList.toggle('open');overlay.classList.toggle('show',o);btn.classList.toggle('active',o);};
+            const btn=document.getElementById('settingsBtn'),panel=document.getElementById('panel'),overlay=document.getElementById('overlay'),closeBtn=document.getElementById('settingsClose');
+            const openPanel=()=>{panel.classList.add('open');overlay.classList.add('show');btn.classList.add('active');};
+            const closePanel=()=>{panel.classList.remove('open');overlay.classList.remove('show');btn.classList.remove('active');};
+            const toggle=()=>{panel.classList.contains('open')?closePanel():openPanel();};
             btn.onclick=e=>{e.stopPropagation();toggle();};
-            overlay.onclick=toggle;
+            overlay.onclick=closePanel;
+            if(closeBtn)closeBtn.onclick=closePanel;
             panel.onclick=e=>e.stopPropagation();
+            document.addEventListener('keydown',e=>{if(e.key==='Escape'&&panel.classList.contains('open'))closePanel();});
+
+            // Mobile-friendly close gesture: swipe right on panel header.
+            let swipeStartX=0,swipeStartY=0;
+            const panelHeader=panel.querySelector('.panel-header');
+            if(panelHeader){
+                panelHeader.addEventListener('touchstart',e=>{
+                    if(!e.touches.length)return;
+                    swipeStartX=e.touches[0].clientX;
+                    swipeStartY=e.touches[0].clientY;
+                },{passive:true});
+                panelHeader.addEventListener('touchmove',e=>{
+                    if(!e.touches.length)return;
+                    const dx=e.touches[0].clientX-swipeStartX;
+                    const dy=Math.abs(e.touches[0].clientY-swipeStartY);
+                    if(dx>70&&dy<40&&panel.classList.contains('open'))closePanel();
+                },{passive:true});
+            }
             
             document.getElementById('fullscreenBtn').onclick=()=>{
                 if(!document.fullscreenElement){document.documentElement.requestFullscreen().catch(()=>{});}
