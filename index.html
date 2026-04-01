@@ -1,0 +1,1670 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>3D Particle System</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap');
+        
+        :root {
+            --bg: #000000;
+            --surface: rgba(255,255,255,0.03);
+            --surface-hover: rgba(255,255,255,0.06);
+            --border: rgba(255,255,255,0.08);
+            --text: rgba(255,255,255,0.9);
+            --text-secondary: rgba(255,255,255,0.5);
+            --accent: rgba(255,255,255,0.15);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            overflow: hidden;
+            background: var(--bg);
+            font-family: 'Inter', sans-serif;
+            color: var(--text);
+        }
+
+        canvas {
+            position: fixed;
+            top: 0;
+            left: 0;
+            display: block;
+        }
+
+        /* Top Bar */
+        .top-bar {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            padding: 16px 20px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            z-index: 100;
+            pointer-events: none;
+        }
+
+        .stats {
+            font-size: 11px;
+            font-weight: 400;
+            letter-spacing: 1.5px;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+        }
+
+        .audio-indicator {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: var(--text-secondary);
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+
+        .audio-indicator.active {
+            opacity: 1;
+            background: #00ff88;
+            box-shadow: 0 0 10px #00ff88;
+        }
+
+        /* Settings Button */
+        .settings-btn {
+            position: fixed;
+            top: 16px;
+            right: 20px;
+            width: 40px;
+            height: 40px;
+            border-radius: 10px;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            color: var(--text);
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.3s ease;
+            z-index: 200;
+            pointer-events: auto;
+        }
+
+        .settings-btn:hover {
+            background: var(--surface-hover);
+            transform: rotate(30deg);
+        }
+
+        .settings-btn svg {
+            width: 20px;
+            height: 20px;
+        }
+
+        /* Settings Panel */
+        .settings-panel {
+            position: fixed;
+            top: 0;
+            right: -420px;
+            width: 420px;
+            max-width: 100vw;
+            height: 100vh;
+            background: rgba(0,0,0,0.95);
+            backdrop-filter: blur(20px);
+            border-left: 1px solid var(--border);
+            z-index: 150;
+            transition: right 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            overflow-y: auto;
+            padding: 80px 24px 100px;
+        }
+
+        .settings-panel.open {
+            right: 0;
+        }
+
+        .panel-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.5);
+            opacity: 0;
+            pointer-events: none;
+            z-index: 140;
+            transition: opacity 0.3s;
+        }
+
+        .panel-overlay.active {
+            opacity: 1;
+            pointer-events: auto;
+        }
+
+        /* Section Headers */
+        .section-title {
+            font-size: 10px;
+            font-weight: 600;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+            color: var(--text-secondary);
+            margin: 24px 0 12px;
+            padding-top: 16px;
+            border-top: 1px solid var(--border);
+        }
+
+        .section-title:first-child {
+            margin-top: 0;
+            padding-top: 0;
+            border-top: none;
+        }
+
+        /* Shapes Grid */
+        .shapes-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 8px;
+        }
+
+        .shape-btn {
+            padding: 12px 8px;
+            border-radius: 8px;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            color: var(--text-secondary);
+            font-size: 11px;
+            font-family: 'Inter', sans-serif;
+            font-weight: 500;
+            letter-spacing: 0.5px;
+            cursor: pointer;
+            transition: all 0.2s;
+            text-align: center;
+        }
+
+        .shape-btn:hover {
+            background: var(--surface-hover);
+            color: var(--text);
+        }
+
+        .shape-btn.active {
+            background: var(--surface-hover);
+            color: var(--text);
+            border-color: var(--accent);
+        }
+
+        /* Colors */
+        .colors-row {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+
+        .color-dot {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            cursor: pointer;
+            border: 2px solid transparent;
+            transition: all 0.2s;
+            position: relative;
+        }
+
+        .color-dot:hover {
+            transform: scale(1.1);
+        }
+
+        .color-dot.active {
+            border-color: var(--text);
+            transform: scale(1.05);
+        }
+
+        .color-dot.custom::after {
+            content: '+';
+            position: absolute;
+            inset: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 16px;
+            color: var(--text);
+            background: var(--surface);
+            border-radius: 50%;
+        }
+
+        /* Sliders */
+        .slider-group {
+            margin-bottom: 16px;
+        }
+
+        .slider-label {
+            display: flex;
+            justify-content: space-between;
+            font-size: 11px;
+            color: var(--text-secondary);
+            margin-bottom: 6px;
+        }
+
+        .slider-value {
+            color: var(--text);
+            font-weight: 500;
+        }
+
+        input[type="range"] {
+            width: 100%;
+            height: 4px;
+            background: var(--surface);
+            border-radius: 2px;
+            outline: none;
+            -webkit-appearance: none;
+        }
+
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 14px;
+            height: 14px;
+            background: var(--text);
+            border-radius: 50%;
+            cursor: pointer;
+            transition: transform 0.2s;
+        }
+
+        input[type="range"]::-webkit-slider-thumb:hover {
+            transform: scale(1.2);
+        }
+
+        /* Toggles */
+        .toggle-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px 0;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .toggle-label {
+            font-size: 12px;
+            color: var(--text-secondary);
+        }
+
+        .toggle-switch {
+            width: 44px;
+            height: 24px;
+            background: var(--surface);
+            border-radius: 12px;
+            position: relative;
+            cursor: pointer;
+            transition: background 0.3s;
+            border: 1px solid var(--border);
+        }
+
+        .toggle-switch.active {
+            background: rgba(255,255,255,0.2);
+        }
+
+        .toggle-switch::after {
+            content: '';
+            position: absolute;
+            width: 18px;
+            height: 18px;
+            background: var(--text);
+            border-radius: 50%;
+            top: 2px;
+            left: 2px;
+            transition: transform 0.3s;
+        }
+
+        .toggle-switch.active::after {
+            transform: translateX(20px);
+        }
+
+        /* Action Buttons */
+        .actions-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 8px;
+        }
+
+        .action-btn {
+            padding: 12px;
+            border-radius: 8px;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            color: var(--text);
+            font-size: 11px;
+            font-family: 'Inter', sans-serif;
+            font-weight: 500;
+            letter-spacing: 0.5px;
+            cursor: pointer;
+            transition: all 0.2s;
+            text-transform: uppercase;
+        }
+
+        .action-btn:hover {
+            background: var(--surface-hover);
+            border-color: var(--accent);
+        }
+
+        .action-btn.danger {
+            color: #ff6666;
+            border-color: rgba(255,102,102,0.3);
+        }
+
+        .action-btn.danger:hover {
+            background: rgba(255,102,102,0.1);
+        }
+
+        /* Input Section */
+        .input-section {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            padding: 20px;
+            background: linear-gradient(to top, rgba(0,0,0,0.9), transparent);
+            z-index: 100;
+        }
+
+        .input-wrap {
+            max-width: 500px;
+            margin: 0 auto;
+            position: relative;
+        }
+
+        input[type="text"] {
+            width: 100%;
+            padding: 16px 24px;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 30px;
+            color: var(--text);
+            font-size: 14px;
+            font-family: 'Inter', sans-serif;
+            outline: none;
+            text-align: center;
+            letter-spacing: 1px;
+            backdrop-filter: blur(10px);
+            transition: all 0.3s;
+        }
+
+        input[type="text"]:focus {
+            background: var(--surface-hover);
+            border-color: var(--accent);
+        }
+
+        input[type="text"]::placeholder {
+            color: var(--text-secondary);
+        }
+
+        /* Particle Type Selector */
+        .type-selector {
+            display: flex;
+            gap: 4px;
+            background: var(--surface);
+            padding: 4px;
+            border-radius: 8px;
+            border: 1px solid var(--border);
+        }
+
+        .type-btn {
+            flex: 1;
+            padding: 8px 12px;
+            border: none;
+            background: transparent;
+            color: var(--text-secondary);
+            font-size: 11px;
+            font-family: 'Inter', sans-serif;
+            cursor: pointer;
+            border-radius: 6px;
+            transition: all 0.2s;
+        }
+
+        .type-btn.active {
+            background: var(--surface-hover);
+            color: var(--text);
+        }
+
+        /* Presets */
+        .presets-row {
+            display: flex;
+            gap: 8px;
+            overflow-x: auto;
+            padding-bottom: 4px;
+        }
+
+        .preset-btn {
+            padding: 8px 16px;
+            border-radius: 20px;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            color: var(--text-secondary);
+            font-size: 11px;
+            white-space: nowrap;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .preset-btn:hover, .preset-btn.active {
+            background: var(--surface-hover);
+            color: var(--text);
+        }
+
+        /* Color Mixer */
+        .color-mixer {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 12px;
+            margin-top: 12px;
+        }
+
+        .mixer-color {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .mixer-preview {
+            width: 40px;
+            height: 40px;
+            border-radius: 8px;
+            border: 2px solid var(--border);
+            cursor: pointer;
+        }
+
+        .mixer-label {
+            font-size: 9px;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        input[type="color"] {
+            width: 40px;
+            height: 40px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            background: none;
+        }
+
+        /* Responsive */
+        @media (max-width: 640px) {
+            .settings-panel {
+                width: 100%;
+                right: -100%;
+            }
+
+            .shapes-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+
+            .actions-grid {
+                grid-template-columns: 1fr;
+            }
+
+            input[type="text"] {
+                font-size: 16px;
+            }
+        }
+
+        /* Scrollbar */
+        ::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: transparent;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: var(--surface);
+            border-radius: 3px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: var(--surface-hover);
+        }
+
+        /* Loading */
+        .loading {
+            position: fixed;
+            inset: 0;
+            background: var(--bg);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+            transition: opacity 0.5s;
+        }
+
+        .loading.hidden {
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        .loading-text {
+            font-size: 12px;
+            letter-spacing: 4px;
+            color: var(--text-secondary);
+            animation: pulse 1.5s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 0.3; }
+            50% { opacity: 1; }
+        }
+    </style>
+</head>
+<body>
+    <!-- Loading -->
+    <div class="loading" id="loading">
+        <div class="loading-text">INITIALIZING</div>
+    </div>
+
+    <!-- Canvas -->
+    <canvas id="canvas"></canvas>
+
+    <!-- Top Bar -->
+    <div class="top-bar">
+        <div class="stats">
+            <span id="particle-count">40K</span> · <span id="fps">60</span> FPS
+        </div>
+        <div class="audio-indicator" id="audio-indicator"></div>
+    </div>
+
+    <!-- Settings Button -->
+    <button class="settings-btn" id="settings-btn">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="3"></circle>
+            <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+        </svg>
+    </button>
+
+    <!-- Panel Overlay -->
+    <div class="panel-overlay" id="panel-overlay"></div>
+
+    <!-- Settings Panel -->
+    <div class="settings-panel" id="settings-panel">
+        
+        <!-- Shapes -->
+        <div class="section-title">Shapes</div>
+        <div class="shapes-grid">
+            <button class="shape-btn active" data-shape="heart">♥ Heart</button>
+            <button class="shape-btn" data-shape="sphere">◉ Sphere</button>
+            <button class="shape-btn" data-shape="torus">◎ Torus</button>
+            <button class="shape-btn" data-shape="galaxy">✦ Galaxy</button>
+            <button class="shape-btn" data-shape="dna">⌇ DNA</button>
+            <button class="shape-btn" data-shape="cube">⬡ Cube</button>
+            <button class="shape-btn" data-shape="wave">〜 Wave</button>
+            <button class="shape-btn" data-shape="star">★ Star</button>
+            <button class="shape-btn" data-shape="spiral">⊛ Spiral</button>
+        </div>
+
+        <!-- Particle Type -->
+        <div class="section-title">Particle Type</div>
+        <div class="type-selector">
+            <button class="type-btn active" data-type="points">Dots</button>
+            <button class="type-btn" data-type="lines">Lines</button>
+            <button class="type-btn" data-type="triangles">Triangles</button>
+        </div>
+
+        <!-- Themes -->
+        <div class="section-title">Color Themes</div>
+        <div class="colors-row">
+            <div class="color-dot active" data-theme="fire" style="background: linear-gradient(135deg, #ff0040, #ff8800);"></div>
+            <div class="color-dot" data-theme="ocean" style="background: linear-gradient(135deg, #00d4ff, #0044ff);"></div>
+            <div class="color-dot" data-theme="aurora" style="background: linear-gradient(135deg, #00ffaa, #9900ff);"></div>
+            <div class="color-dot" data-theme="sunset" style="background: linear-gradient(135deg, #ff6600, #ff00cc);"></div>
+            <div class="color-dot" data-theme="cyber" style="background: linear-gradient(135deg, #00ffff, #ff00ff);"></div>
+            <div class="color-dot" data-theme="gold" style="background: linear-gradient(135deg, #ffdd00, #ff6600);"></div>
+            <div class="color-dot" data-theme="candy" style="background: linear-gradient(135deg, #ff77ff, #77ffdd);"></div>
+            <div class="color-dot custom" id="custom-color-btn" title="Custom"></div>
+        </div>
+
+        <!-- Color Mixer -->
+        <div class="section-title">Color Mixer</div>
+        <div class="color-mixer">
+            <div class="mixer-color">
+                <input type="color" id="color1" value="#ff0040">
+                <span class="mixer-label">Primary</span>
+            </div>
+            <div class="mixer-color">
+                <input type="color" id="color2" value="#ff8800">
+                <span class="mixer-label">Secondary</span>
+            </div>
+            <div class="mixer-color">
+                <input type="color" id="color3" value="#ffdd00">
+                <span class="mixer-label">Accent</span>
+            </div>
+        </div>
+
+        <!-- Sliders -->
+        <div class="section-title">Parameters</div>
+        
+        <div class="slider-group">
+            <div class="slider-label">
+                <span>Particle Size</span>
+                <span class="slider-value" id="size-value">0.12</span>
+            </div>
+            <input type="range" id="size-slider" min="0.02" max="0.5" step="0.01" value="0.12">
+        </div>
+
+        <div class="slider-group">
+            <div class="slider-label">
+                <span>Speed</span>
+                <span class="slider-value" id="speed-value">1.0</span>
+            </div>
+            <input type="range" id="speed-slider" min="0.1" max="3" step="0.1" value="1">
+        </div>
+
+        <div class="slider-group">
+            <div class="slider-label">
+                <span>Spread</span>
+                <span class="slider-value" id="spread-value">1.0</span>
+            </div>
+            <input type="range" id="spread-slider" min="0.5" max="2" step="0.1" value="1">
+        </div>
+
+        <div class="slider-group">
+            <div class="slider-label">
+                <span>Mouse Force</span>
+                <span class="slider-value" id="force-value">2.5</span>
+            </div>
+            <input type="range" id="force-slider" min="0" max="10" step="0.5" value="2.5">
+        </div>
+
+        <div class="slider-group">
+            <div class="slider-label">
+                <span>Gravity</span>
+                <span class="slider-value" id="gravity-value">0</span>
+            </div>
+            <input type="range" id="gravity-slider" min="-2" max="2" step="0.1" value="0">
+        </div>
+
+        <div class="slider-group">
+            <div class="slider-label">
+                <span>Connections</span>
+                <span class="slider-value" id="connections-value">0</span>
+            </div>
+            <input type="range" id="connections-slider" min="0" max="5" step="1" value="0">
+        </div>
+
+        <div class="slider-group">
+            <div class="slider-label">
+                <span>Trail Length</span>
+                <span class="slider-value" id="trail-value">0</span>
+            </div>
+            <input type="range" id="trail-slider" min="0" max="20" step="1" value="0">
+        </div>
+
+        <!-- Toggles -->
+        <div class="section-title">Effects</div>
+        
+        <div class="toggle-row">
+            <span class="toggle-label">Auto Rotate</span>
+            <div class="toggle-switch" id="toggle-rotate"></div>
+        </div>
+
+        <div class="toggle-row">
+            <span class="toggle-label">Mouse Repel</span>
+            <div class="toggle-switch active" id="toggle-repel"></div>
+        </div>
+
+        <div class="toggle-row">
+            <span class="toggle-label">Ripple Wave</span>
+            <div class="toggle-switch active" id="toggle-ripple"></div>
+        </div>
+
+        <div class="toggle-row">
+            <span class="toggle-label">Audio Visualizer</span>
+            <div class="toggle-switch" id="toggle-audio"></div>
+        </div>
+
+        <div class="toggle-row">
+            <span class="toggle-label">Magnetic Fields</span>
+            <div class="toggle-switch" id="toggle-magnetic"></div>
+        </div>
+
+        <div class="toggle-row">
+            <span class="toggle-label">Particle Life</span>
+            <div class="toggle-switch" id="toggle-life"></div>
+        </div>
+
+        <div class="toggle-row">
+            <span class="toggle-label">Stars Background</span>
+            <div class="toggle-switch active" id="toggle-stars"></div>
+        </div>
+
+        <!-- Presets -->
+        <div class="section-title">Presets</div>
+        <div class="presets-row">
+            <button class="preset-btn" data-preset="default">Default</button>
+            <button class="preset-btn" data-preset="neon">Neon</button>
+            <button class="preset-btn" data-preset="calm">Calm</button>
+            <button class="preset-btn" data-preset="chaos">Chaos</button>
+        </div>
+
+        <!-- Actions -->
+        <div class="section-title">Actions</div>
+        <div class="actions-grid">
+            <button class="action-btn" id="btn-explode">💥 Explode</button>
+            <button class="action-btn" id="btn-screenshot">📸 Save</button>
+            <button class="action-btn" id="btn-random">🎲 Random</button>
+            <button class="action-btn" id="btn-export">📤 Export</button>
+            <button class="action-btn" id="btn-import">📥 Import</button>
+            <button class="action-btn danger" id="btn-reset">↺ Reset</button>
+        </div>
+
+    </div>
+
+    <!-- Input Section -->
+    <div class="input-section">
+        <div class="input-wrap">
+            <input type="text" id="text-input" maxlength="15" autocomplete="off" placeholder="Type to morph...">
+        </div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script>
+        // ═══════════════════════════════════════════════════════════════════
+        // CONFIGURATION
+        // ═══════════════════════════════════════════════════════════════════
+        const CONFIG = {
+            particleCount: 40000,
+            bgStarsCount: 2500,
+            maxConnections: 0,
+            trailLength: 0,
+            particleSize: 0.12,
+            speed: 1.0,
+            spread: 1.0,
+            mouseForce: 2.5,
+            gravity: 0,
+            autoRotate: false,
+            mouseRepel: true,
+            rippleWave: true,
+            audioEnabled: false,
+            magneticFields: false,
+            particleLife: false,
+            starsBg: true,
+            currentShape: 'heart',
+            currentTheme: 'fire',
+            particleType: 'points'
+        };
+
+        // ═══════════════════════════════════════════════════════════════════
+        // THEMES
+        // ═══════════════════════════════════════════════════════════════════
+        const THEMES = {
+            fire:   [[1.0, 0.08, 0.12], [1.0, 0.38, 0.02], [1.0, 0.70, 0.00], [0.95, 0.12, 0.28], [1.0, 0.90, 0.18]],
+            ocean:  [[0.00, 0.72, 1.00], [0.00, 0.92, 0.90], [0.08, 0.30, 0.95], [0.00, 1.00, 0.78], [0.25, 0.55, 1.00]],
+            aurora: [[0.00, 1.00, 0.55], [0.15, 0.60, 1.00], [0.55, 0.00, 1.00], [0.00, 1.00, 0.88], [0.70, 0.15, 0.95]],
+            sunset: [[1.00, 0.25, 0.00], [1.00, 0.00, 0.55], [1.00, 0.58, 0.08], [0.92, 0.08, 0.65], [1.00, 0.78, 0.28]],
+            cyber:  [[0.00, 1.00, 1.00], [1.00, 0.00, 1.00], [0.35, 0.00, 1.00], [0.00, 1.00, 0.55], [1.00, 0.18, 0.82]],
+            gold:   [[1.00, 0.85, 0.00], [1.00, 0.65, 0.00], [0.98, 0.82, 0.28], [1.00, 0.48, 0.08], [1.00, 0.95, 0.55]],
+            candy:  [[1.00, 0.45, 1.00], [0.45, 1.00, 0.88], [1.00, 0.75, 0.92], [0.65, 0.92, 1.00], [1.00, 0.55, 0.75]],
+            rainbow:[[1.00, 0.00, 0.18], [1.00, 0.60, 0.00], [0.18, 1.00, 0.00], [0.00, 0.55, 1.00], [0.72, 0.00, 1.00]],
+            custom: [[1.0, 0.0, 0.25], [1.0, 0.5, 0.0], [1.0, 0.8, 0.0]]
+        };
+
+        // ═══════════════════════════════════════════════════════════════════
+        // GLOBAL VARIABLES
+        // ═══════════════════════════════════════════════════════════════════
+        let scene, camera, renderer, particles, bgStars, connectionLines;
+        let targets = new Float32Array(CONFIG.particleCount * 3);
+        let velocities = new Float32Array(CONFIG.particleCount * 3);
+        let seeds = new Float32Array(CONFIG.particleCount);
+        let lifespans = new Float32Array(CONFIG.particleCount);
+        let trails = [];
+        
+        let mouse = { x: -9999, y: -9999, down: false };
+        let drag = { active: false, lastX: 0, lastY: 0 };
+        let rotation = { y: 0, x: 0 };
+        let autoRot = 0;
+        
+        let isTextMode = false;
+        let t = 0;
+        let lastTime = performance.now();
+        let frames = 0;
+        
+        let audioContext, analyser, dataArray;
+        let magneticPoints = [];
+
+        // Text canvas
+        const textCanvas = document.createElement('canvas');
+        const textCtx = textCanvas.getContext('2d');
+        textCanvas.width = 900;
+        textCanvas.height = 300;
+
+        // ═══════════════════════════════════════════════════════════════════
+        // SHAPE GENERATORS
+        // ═══════════════════════════════════════════════════════════════════
+        const SHAPES = {
+            heart: (i) => {
+                const u = (i / CONFIG.particleCount) * Math.PI * 2;
+                const v = Math.acos(Math.random() * 2 - 1);
+                const x = 16 * Math.pow(Math.sin(u), 3) * Math.sin(v);
+                const y = (13 * Math.cos(u) - 5 * Math.cos(2*u) - 2 * Math.cos(3*u) - Math.cos(4*u)) * Math.sin(v);
+                const z = 10 * Math.cos(v);
+                return [x * 0.75, y * 0.75, z * 0.75];
+            },
+            sphere: () => {
+                const theta = Math.random() * Math.PI * 2;
+                const phi = Math.acos(Math.random() * 2 - 1);
+                const r = 11;
+                return [r * Math.sin(phi) * Math.cos(theta), r * Math.sin(phi) * Math.sin(theta), r * Math.cos(phi)];
+            },
+            torus: () => {
+                const R = 9, r = 3.5;
+                const u = Math.random() * Math.PI * 2;
+                const v = Math.random() * Math.PI * 2;
+                return [(R + r * Math.cos(v)) * Math.cos(u), (R + r * Math.cos(v)) * Math.sin(u), r * Math.sin(v)];
+            },
+            galaxy: () => {
+                const arm = Math.floor(Math.random() * 4);
+                const base = (arm / 4) * Math.PI * 2;
+                const dist = Math.pow(Math.random(), 0.45) * 14;
+                const angle = base + dist * 0.5 + (Math.random() - 0.5) * 0.65;
+                const yOff = (Math.random() - 0.5) * (2 / (1 + dist * 0.25));
+                return [dist * Math.cos(angle), yOff, dist * Math.sin(angle)];
+            },
+            dna: () => {
+                const frac = Math.random();
+                const yy = (frac - 0.5) * 28;
+                const angle1 = frac * Math.PI * 7;
+                const angle2 = angle1 + Math.PI;
+                const rr = 6;
+                const rnd = Math.random();
+                if (rnd < 0.45) return [rr * Math.cos(angle1), yy, rr * Math.sin(angle1)];
+                if (rnd < 0.90) return [rr * Math.cos(angle2), yy, rr * Math.sin(angle2)];
+                const bl = Math.random();
+                return [rr * Math.cos(angle1) * bl + rr * Math.cos(angle2) * (1-bl), yy, rr * Math.sin(angle1) * bl + rr * Math.sin(angle2) * (1-bl)];
+            },
+            cube: () => {
+                const s = 9;
+                const face = Math.floor(Math.random() * 6);
+                const a = (Math.random() - 0.5) * 2 * s;
+                const b = (Math.random() - 0.5) * 2 * s;
+                const faces = [[s,a,b], [-s,a,b], [a,s,b], [a,-s,b], [a,b,s], [a,b,-s]];
+                return faces[face];
+            },
+            wave: () => {
+                const wx = (Math.random() - 0.5) * 28;
+                const wz = (Math.random() - 0.5) * 28;
+                const wy = Math.sin(wx * 0.4) * Math.cos(wz * 0.4) * 5;
+                return [wx, wy, wz];
+            },
+            star: () => {
+                const angle = Math.random() * Math.PI * 2;
+                const r = Math.random() * 12;
+                const spikes = 5;
+                const spikeAngle = (Math.floor(angle * spikes / Math.PI / 2) * Math.PI * 2 / spikes);
+                const spikeFactor = 1 + Math.cos((angle - spikeAngle) * spikes) * 0.5;
+                const finalR = r * spikeFactor;
+                return [finalR * Math.cos(angle), finalR * Math.sin(angle) * 0.5, (Math.random() - 0.5) * 4];
+            },
+            spiral: () => {
+                const t = Math.random() * Math.PI * 6;
+                const r = t * 1.5;
+                const h = (Math.random() - 0.5) * 20;
+                return [r * Math.cos(t), h, r * Math.sin(t)];
+            }
+        };
+
+        // ═══════════════════════════════════════════════════════════════════
+        // INITIALIZATION
+        // ═══════════════════════════════════════════════════════════════════
+        function init() {
+            scene = new THREE.Scene();
+            camera = new THREE.PerspectiveCamera(65, innerWidth / innerHeight, 0.1, 800);
+            camera.position.z = 35;
+
+            renderer = new THREE.WebGLRenderer({ canvas: document.getElementById('canvas'), antialias: true, preserveDrawingBuffer: true });
+            renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+            renderer.setSize(innerWidth, innerHeight);
+            renderer.setClearColor(0x000000, 1);
+
+            createParticles();
+            createBgStars();
+            createConnections();
+            initTrails();
+            
+            setTargets('');
+            setupEvents();
+            setupUI();
+            
+            document.getElementById('loading').classList.add('hidden');
+            requestAnimationFrame(loop);
+        }
+
+        function createParticles() {
+            const geo = new THREE.BufferGeometry();
+            const pos = new Float32Array(CONFIG.particleCount * 3);
+            const col = new Float32Array(CONFIG.particleCount * 3);
+            const size = new Float32Array(CONFIG.particleCount);
+
+            const pal = THEMES[CONFIG.currentTheme];
+            for (let i = 0; i < CONFIG.particleCount; i++) {
+                pos[i*3] = (Math.random() - 0.5) * 200;
+                pos[i*3+1] = (Math.random() - 0.5) * 200;
+                pos[i*3+2] = (Math.random() - 0.5) * 200;
+
+                const ci = Math.floor(Math.random() * pal.length);
+                col[i*3] = pal[ci][0];
+                col[i*3+1] = pal[ci][1];
+                col[i*3+2] = pal[ci][2];
+
+                seeds[i] = Math.random();
+                size[i] = CONFIG.particleSize;
+                lifespans[i] = 1.0;
+            }
+
+            geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+            geo.setAttribute('color', new THREE.BufferAttribute(col, 3));
+
+            const mat = new THREE.PointsMaterial({
+                size: CONFIG.particleSize,
+                vertexColors: true,
+                transparent: true,
+                opacity: 0.85,
+                blending: THREE.AdditiveBlending
+            });
+
+            particles = new THREE.Points(geo, mat);
+            scene.add(particles);
+        }
+
+        function createBgStars() {
+            const geo = new THREE.BufferGeometry();
+            const pos = new Float32Array(CONFIG.bgStarsCount * 3);
+            const col = new Float32Array(CONFIG.bgStarsCount * 3);
+
+            for (let i = 0; i < CONFIG.bgStarsCount; i++) {
+                pos[i*3] = (Math.random()-0.5)*600;
+                pos[i*3+1] = (Math.random()-0.5)*600;
+                pos[i*3+2] = (Math.random()-0.5)*600;
+                const b = 0.12 + Math.random() * 0.22;
+                col[i*3] = b * (0.7 + Math.random() * 0.3);
+                col[i*3+1] = b * (0.7 + Math.random() * 0.3);
+                col[i*3+2] = b;
+            }
+
+            geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+            geo.setAttribute('color', new THREE.BufferAttribute(col, 3));
+
+            bgStars = new THREE.Points(geo, new THREE.PointsMaterial({
+                size: 0.35, vertexColors: true, transparent: true, opacity: 0.55, blending: THREE.AdditiveBlending
+            }));
+            scene.add(bgStars);
+        }
+
+        function createConnections() {
+            const geo = new THREE.BufferGeometry();
+            const pos = new Float32Array(CONFIG.particleCount * 6);
+            const col = new Float32Array(CONFIG.particleCount * 6);
+            geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+            geo.setAttribute('color', new THREE.BufferAttribute(col, 3));
+
+            const mat = new THREE.LineBasicMaterial({
+                vertexColors: true, transparent: true, opacity: 0.3, blending: THREE.AdditiveBlending
+            });
+
+            connectionLines = new THREE.LineSegments(geo, mat);
+            connectionLines.visible = false;
+            scene.add(connectionLines);
+        }
+
+        function initTrails() {
+            trails = [];
+            for (let i = 0; i < CONFIG.particleCount; i++) {
+                trails.push([]);
+            }
+        }
+
+        // ═══════════════════════════════════════════════════════════════════
+        // TEXT SAMPLING
+        // ═══════════════════════════════════════════════════════════════════
+        function sampleText(text) {
+            if (!text || !text.trim()) return null;
+            textCtx.clearRect(0, 0, textCanvas.width, textCanvas.height);
+            textCtx.fillStyle = '#fff';
+            const fs = text.length > 10 ? 68 : text.length > 5 ? 88 : 108;
+            textCtx.font = `900 ${fs}px Inter, Arial Black, sans-serif`;
+            textCtx.textAlign = 'center';
+            textCtx.textBaseline = 'middle';
+            textCtx.fillText(text, textCanvas.width / 2, textCanvas.height / 2);
+
+            const data = textCtx.getImageData(0, 0, textCanvas.width, textCanvas.height).data;
+            const pts = [];
+            for (let y = 0; y < textCanvas.height; y += 1) {
+                for (let x = 0; x < textCanvas.width; x += 1) {
+                    if (data[(y * textCanvas.width + x) * 4 + 3] > 150) {
+                        pts.push([(x - textCanvas.width/2) * 0.1, -(y - textCanvas.height/2) * 0.1, (Math.random()-0.5)*1.5]);
+                    }
+                }
+            }
+            return pts.length ? pts : null;
+        }
+
+        function setTargets(text) {
+            const pts = sampleText(text);
+            isTextMode = !!pts;
+
+            if (isTextMode) {
+                rotation.y = 0; rotation.x = 0; autoRot = 0;
+            }
+
+            for (let i = 0; i < CONFIG.particleCount; i++) {
+                let p;
+                if (isTextMode) {
+                    const tp = pts[i % pts.length];
+                    p = [tp[0] + (Math.random()-0.5)*0.12, tp[1] + (Math.random()-0.5)*0.12, tp[2] + (Math.random()-0.5)*0.12];
+                } else {
+                    p = SHAPES[CONFIG.currentShape](i);
+                    const j = CONFIG.currentShape === 'cube' ? 0.15 : 0.35;
+                    p = [p[0] + (Math.random()-0.5)*j, p[1] + (Math.random()-0.5)*j, p[2] + (Math.random()-0.5)*j];
+                }
+                targets[i*3] = p[0] * CONFIG.spread;
+                targets[i*3+1] = p[1] * CONFIG.spread;
+                targets[i*3+2] = p[2] * CONFIG.spread;
+                
+                if (CONFIG.particleLife) {
+                    lifespans[i] = 0.5 + Math.random() * 0.5;
+                }
+            }
+        }
+
+        function applyTheme() {
+            const pal = THEMES[CONFIG.currentTheme];
+            const cArr = particles.geometry.attributes.color.array;
+            for (let i = 0; i < CONFIG.particleCount; i++) {
+                const ci = Math.floor(Math.random() * pal.length);
+                const v = 0.8 + Math.random() * 0.4;
+                cArr[i*3] = Math.min(1, pal[ci][0] * v);
+                cArr[i*3+1] = Math.min(1, pal[ci][1] * v);
+                cArr[i*3+2] = Math.min(1, pal[ci][2] * v);
+            }
+            particles.geometry.attributes.color.needsUpdate = true;
+        }
+
+        // ═══════════════════════════════════════════════════════════════════
+        // AUDIO VISUALIZER
+        // ═══════════════════════════════════════════════════════════════════
+        async function initAudio() {
+            try {
+                audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                const source = audioContext.createMediaStreamSource(stream);
+                analyser = audioContext.createAnalyser();
+                analyser.fftSize = 256;
+                source.connect(analyser);
+                dataArray = new Uint8Array(analyser.frequencyBinCount);
+                document.getElementById('audio-indicator').classList.add('active');
+            } catch (e) {
+                console.error('Audio init failed:', e);
+                CONFIG.audioEnabled = false;
+                document.getElementById('toggle-audio').classList.remove('active');
+            }
+        }
+
+        function getAudioData() {
+            if (!analyser || !CONFIG.audioEnabled) return 0;
+            analyser.getByteFrequencyData(dataArray);
+            let sum = 0;
+            for (let i = 0; i < dataArray.length; i++) sum += dataArray[i];
+            return (sum / dataArray.length) / 255;
+        }
+
+        // ═══════════════════════════════════════════════════════════════════
+        // MAIN LOOP
+        // ═══════════════════════════════════════════════════════════════════
+        function loop(now) {
+            requestAnimationFrame(loop);
+
+            const dt = Math.min((now - lastTime) / 1000, 0.05);
+            lastTime = now;
+            t += dt * CONFIG.speed;
+
+            frames++;
+            if (frames % 45 === 0) {
+                document.getElementById('fps').textContent = Math.round(1/dt);
+            }
+
+            const audioLevel = getAudioData();
+            const posArr = particles.geometry.attributes.position.array;
+            const colArr = particles.geometry.attributes.color.array;
+            const pal = THEMES[CONFIG.currentTheme];
+
+            // Get mouse world position
+            const vec = new THREE.Vector3(mouse.x, mouse.y, 0.5);
+            vec.unproject(camera);
+            const dir = vec.sub(camera.position).normalize();
+            const dist = -camera.position.z / dir.z;
+            const mw = camera.position.clone().add(dir.multiplyScalar(dist));
+
+            // Update magnetic points
+            if (CONFIG.magneticFields && mouse.down) {
+                magneticPoints.push({ x: mw.x, y: mw.y, z: mw.z, strength: 1 });
+                if (magneticPoints.length > 5) magneticPoints.shift();
+            }
+
+            let connectionIdx = 0;
+            const connPos = connectionLines.geometry.attributes.position.array;
+            const connCol = connectionLines.geometry.attributes.color.array;
+
+            for (let i = 0; i < CONFIG.particleCount; i++) {
+                const i3 = i * 3;
+                let px = posArr[i3], py = posArr[i3+1], pz = posArr[i3+2];
+                const tx = targets[i3], ty = targets[i3+1], tz = targets[i3+2];
+                const s = seeds[i];
+
+                // Audio reactivity
+                if (CONFIG.audioEnabled && audioLevel > 0.1) {
+                    const audioForce = audioLevel * 5;
+                    velocities[i3] += (Math.random()-0.5) * audioForce;
+                    velocities[i3+1] += (Math.random()-0.5) * audioForce;
+                    velocities[i3+2] += (Math.random()-0.5) * audioForce;
+                }
+
+                // Mouse force
+                if (CONFIG.mouseRepel) {
+                    const mx = px - mw.x, my = py - mw.y, mz = pz - mw.z;
+                    const md2 = mx*mx + my*my + mz*mz;
+                    if (md2 < 100) {
+                        const md = Math.sqrt(md2) + 0.001;
+                        const f = (10 - md) / 10;
+                        const mul = mouse.down ? -3.0 : CONFIG.mouseForce;
+                        velocities[i3] += (mx/md) * f * mul;
+                        velocities[i3+1] += (my/md) * f * mul;
+                        velocities[i3+2] += (mz/md) * f * mul;
+                    }
+                }
+
+                // Magnetic fields
+                if (CONFIG.magneticFields) {
+                    for (let mp of magneticPoints) {
+                        const dx = mp.x - px, dy = mp.y - py, dz = mp.z - pz;
+                        const d2 = dx*dx + dy*dy + dz*dz;
+                        if (d2 < 400) {
+                            const d = Math.sqrt(d2) + 0.001;
+                            const force = mp.strength * 50 / (d2 + 1);
+                            velocities[i3] += (dx/d) * force;
+                            velocities[i3+1] += (dy/d) * force;
+                            velocities[i3+2] += (dz/d) * force;
+                        }
+                    }
+                }
+
+                // Spring to target
+                velocities[i3] += (tx - px) * 0.085;
+                velocities[i3+1] += (ty - py) * 0.085;
+                velocities[i3+2] += (tz - pz) * 0.085;
+
+                // Ripple wave
+                if (CONFIG.rippleWave) {
+                    const dc = Math.sqrt(px*px + py*py + pz*pz) + 0.001;
+                    const wv = Math.sin(dc * 0.28 - t * 2.8) * 0.025;
+                    velocities[i3] += wv * (px/dc);
+                    velocities[i3+1] += wv * (py/dc);
+                }
+
+                // Gravity
+                if (CONFIG.gravity !== 0) {
+                    velocities[i3+1] -= CONFIG.gravity * 0.5;
+                    if (py < -20 && CONFIG.gravity > 0) {
+                        velocities[i3+1] *= -0.8;
+                        py = -20;
+                    }
+                }
+
+                // Turbulence
+                velocities[i3] += Math.sin(t*1.3 + s*7.1) * 0.003;
+                velocities[i3+1] += Math.cos(t*1.1 + s*5.7) * 0.003;
+                velocities[i3+2] += Math.sin(t*0.9 + s*4.3) * 0.002;
+
+                // Damping
+                velocities[i3] *= 0.80;
+                velocities[i3+1] *= 0.80;
+                velocities[i3+2] *= 0.80;
+
+                // Update position
+                posArr[i3] = px + velocities[i3];
+                posArr[i3+1] = py + velocities[i3+1];
+                posArr[i3+2] = pz + velocities[i3+2];
+
+                // Particle life
+                if (CONFIG.particleLife) {
+                    lifespans[i] -= dt * 0.1;
+                    if (lifespans[i] <= 0) {
+                        lifespans[i] = 1.0;
+                        posArr[i3] = (Math.random()-0.5) * 50;
+                        posArr[i3+1] = (Math.random()-0.5) * 50;
+                        posArr[i3+2] = (Math.random()-0.5) * 50;
+                    }
+                    const life = lifespans[i];
+                    colArr[i3] *= life;
+                    colArr[i3+1] *= life;
+                    colArr[i3+2] *= life;
+                }
+
+                // Color shimmer
+                if (CONFIG.currentTheme === 'rainbow') {
+                    const h = (s + t*0.18) % 1.0;
+                    const ci = Math.floor(h * pal.length) % pal.length;
+                    const ni = (ci + 1) % pal.length;
+                    const bl = (h * pal.length) % 1.0;
+                    colArr[i3] = pal[ci][0] + (pal[ni][0] - pal[ci][0]) * bl;
+                    colArr[i3+1] = pal[ci][1] + (pal[ni][1] - pal[ci][1]) * bl;
+                    colArr[i3+2] = pal[ci][2] + (pal[ni][2] - pal[ci][2]) * bl;
+                } else if ((i & 0xFF) === (Math.floor(t*55) & 0xFF)) {
+                    const ci = Math.floor(Math.random() * pal.length);
+                    const v = 0.82 + Math.random() * 0.36;
+                    colArr[i3] = Math.min(1, pal[ci][0] * v);
+                    colArr[i3+1] = Math.min(1, pal[ci][1] * v);
+                    colArr[i3+2] = Math.min(1, pal[ci][2] * v);
+                }
+
+                // Connections
+                if (CONFIG.maxConnections > 0 && i % 10 === 0) {
+                    let connections = 0;
+                    for (let j = i + 1; j < CONFIG.particleCount && connections < CONFIG.maxConnections; j += 10) {
+                        const j3 = j * 3;
+                        const dx = posArr[i3] - posArr[j3];
+                        const dy = posArr[i3+1] - posArr[j3+1];
+                        const dz = posArr[i3+2] - posArr[j3+2];
+                        const d2 = dx*dx + dy*dy + dz*dz;
+                        
+                        if (d2 < 25) {
+                            const d = Math.sqrt(d2);
+                            const alpha = 1 - d/5;
+                            connPos[connectionIdx*6] = posArr[i3];
+                            connPos[connectionIdx*6+1] = posArr[i3+1];
+                            connPos[connectionIdx*6+2] = posArr[i3+2];
+                            connPos[connectionIdx*6+3] = posArr[j3];
+                            connPos[connectionIdx*6+4] = posArr[j3+1];
+                            connPos[connectionIdx*6+5] = posArr[j3+2];
+                            
+                            connCol[connectionIdx*6] = connCol[connectionIdx*6+3] = colArr[i3] * alpha;
+                            connCol[connectionIdx*6+1] = connCol[connectionIdx*6+4] = colArr[i3+1] * alpha;
+                            connCol[connectionIdx*6+2] = connCol[connectionIdx*6+5] = colArr[i3+2] * alpha;
+                            
+                            connectionIdx++;
+                            connections++;
+                        }
+                    }
+                }
+            }
+
+            particles.geometry.attributes.position.needsUpdate = true;
+            particles.geometry.attributes.color.needsUpdate = true;
+
+            if (CONFIG.maxConnections > 0) {
+                connectionLines.geometry.attributes.position.needsUpdate = true;
+                connectionLines.geometry.attributes.color.needsUpdate = true;
+                connectionLines.geometry.setDrawRange(0, connectionIdx * 2);
+            }
+
+            // Rotation
+            if (isTextMode) {
+                rotation.y *= 0.93;
+                rotation.x *= 0.93;
+            } else if (CONFIG.autoRotate) {
+                autoRot += dt * 0.5;
+            }
+
+            particles.rotation.y = rotation.y + Math.sin(autoRot) * 0.35;
+            particles.rotation.x = rotation.x + Math.sin(t*0.12) * 0.08;
+
+            // Background stars
+            if (CONFIG.starsBg) {
+                bgStars.visible = true;
+                bgStars.rotation.y = t * 0.008;
+                bgStars.rotation.x = t * 0.004;
+            } else {
+                bgStars.visible = false;
+            }
+
+            // Decay magnetic points
+            magneticPoints = magneticPoints.filter(mp => {
+                mp.strength *= 0.95;
+                return mp.strength > 0.01;
+            });
+
+            renderer.render(scene, camera);
+        }
+
+        // ═══════════════════════════════════════════════════════════════════
+        // EVENT HANDLERS
+        // ═══════════════════════════════════════════════════════════════════
+        function setupEvents() {
+            window.addEventListener('resize', () => {
+                camera.aspect = innerWidth / innerHeight;
+                camera.updateProjectionMatrix();
+                renderer.setSize(innerWidth, innerHeight);
+            });
+
+            window.addEventListener('mousemove', (e) => {
+                mouse.x = (e.clientX / innerWidth) * 2 - 1;
+                mouse.y = -(e.clientY / innerHeight) * 2 + 1;
+            });
+
+            window.addEventListener('mousedown', (e) => {
+                mouse.down = true;
+                drag.active = true;
+                drag.lastX = e.clientX;
+                drag.lastY = e.clientY;
+            });
+
+            window.addEventListener('mouseup', () => {
+                mouse.down = false;
+                drag.active = false;
+            });
+
+            window.addEventListener('wheel', (e) => {
+                camera.position.z = Math.max(12, Math.min(70, camera.position.z + e.deltaY * 0.03));
+            }, { passive: true });
+
+            // Touch support
+            window.addEventListener('touchstart', (e) => {
+                if (e.touches.length === 1) {
+                    mouse.down = true;
+                    drag.active = true;
+                    drag.lastX = e.touches[0].clientX;
+                    drag.lastY = e.touches[0].clientY;
+                }
+            }, { passive: true });
+
+            window.addEventListener('touchmove', (e) => {
+                if (e.touches.length === 1) {
+                    mouse.x = (e.touches[0].clientX / innerWidth) * 2 - 1;
+                    mouse.y = -(e.touches[0].clientY / innerHeight) * 2 + 1;
+                }
+            }, { passive: true });
+
+            window.addEventListener('touchend', () => {
+                mouse.down = false;
+                drag.active = false;
+            });
+        }
+
+        // ═══════════════════════════════════════════════════════════════════
+        // UI SETUP
+        // ═══════════════════════════════════════════════════════════════════
+        function setupUI() {
+            // Settings panel toggle
+            const settingsBtn = document.getElementById('settings-btn');
+            const settingsPanel = document.getElementById('settings-panel');
+            const panelOverlay = document.getElementById('panel-overlay');
+
+            function togglePanel() {
+                settingsPanel.classList.toggle('open');
+                panelOverlay.classList.toggle('active');
+            }
+
+            settingsBtn.addEventListener('click', togglePanel);
+            panelOverlay.addEventListener('click', togglePanel);
+
+            // Text input
+            document.getElementById('text-input').addEventListener('input', (e) => {
+                setTargets(e.target.value);
+            });
+
+            // Shapes
+            document.querySelectorAll('.shape-btn').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    document.querySelectorAll('.shape-btn').forEach(b => b.classList.remove('active'));
+                    btn.classList.add('active');
+                    CONFIG.currentShape = btn.dataset.shape;
+                    if (!document.getElementById('text-input').value.trim()) {
+                        setTargets('');
+                    }
+                });
+            });
+
+            // Particle types
+            document.querySelectorAll('.type-btn').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    document.querySelectorAll('.type-btn').forEach(b => b.classList.remove('active'));
+                    btn.classList.add('active');
+                    CONFIG.particleType = btn.dataset.type;
+                    updateParticleType();
+                });
+            });
+
+            // Themes
+            document.querySelectorAll('.color-dot:not(.custom)').forEach(dot => {
+                dot.addEventListener('click', () => {
+                    document.querySelectorAll('.color-dot').forEach(d => d.classList.remove('active'));
+                    dot.classList.add('active');
+                    CONFIG.currentTheme = dot.dataset.theme;
+                    applyTheme();
+                });
+            });
+
+            // Custom color mixer
+            const color1 = document.getElementById('color1');
+            const color2 = document.getElementById('color2');
+            const color3 = document.getElementById('color3');
+
+            function hexToRgb(hex) {
+                const r = parseInt(hex.slice(1,3), 16) / 255;
+                const g = parseInt(hex.slice(3,5), 16) / 255;
+                const b = parseInt(hex.slice(5,7), 16) / 255;
+                return [r, g, b];
+            }
+
+            function updateCustomTheme() {
+                THEMES.custom = [hexToRgb(color1.value), hexToRgb(color2.value), hexToRgb(color3.value)];
+                CONFIG.currentTheme = 'custom';
+                document.querySelectorAll('.color-dot').forEach(d => d.classList.remove('active'));
+                document.getElementById('custom-color-btn').classList.add('active');
+                applyTheme();
+            }
+
+            [color1, color2, color3].forEach(input => {
+                input.addEventListener('input', updateCustomTheme);
+            });
+
+            document.getElementById('custom-color-btn').addEventListener('click', updateCustomTheme);
+
+            // Sliders
+            const sliders = {
+                'size-slider': (v) => { CONFIG.particleSize = v; particles.material.size = v; document.getElementById('size-value').textContent = v; },
+                'speed-slider': (v) => { CONFIG.speed = v; document.getElementById('speed-value').textContent = v; },
+                'spread-slider': (v) => { CONFIG.spread = v; setTargets(document.getElementById('text-input').value); document.getElementById('spread-value').textContent = v; },
+                'force-slider': (v) => { CONFIG.mouseForce = v; document.getElementById('force-value').textContent = v; },
+                'gravity-slider': (v) => { CONFIG.gravity = parseFloat(v); document.getElementById('gravity-value').textContent = v; },
+                'connections-slider': (v) => { 
+                    CONFIG.maxConnections = parseInt(v); 
+                    connectionLines.visible = v > 0;
+                    document.getElementById('connections-value').textContent = v;
+                },
+                'trail-slider': (v) => { CONFIG.trailLength = parseInt(v); document.getElementById('trail-value').textContent = v; }
+            };
+
+            Object.entries(sliders).forEach(([id, callback]) => {
+                const slider = document.getElementById(id);
+                if (slider) {
+                    slider.addEventListener('input', (e) => callback(e.target.value));
+                }
+            });
+
+            // Toggles
+            const toggles = {
+                'toggle-rotate': (v) => CONFIG.autoRotate = v,
+                'toggle-repel': (v) => CONFIG.mouseRepel = v,
+                'toggle-ripple': (v) => CONFIG.rippleWave = v,
+                'toggle-audio': async (v) => {
+                    CONFIG.audioEnabled = v;
+                    if (v && !audioContext) await initAudio();
+                    if (!v) document.getElementById('audio-indicator').classList.remove('active');
+                },
+                'toggle-magnetic': (v) => CONFIG.magneticFields = v,
+                'toggle-life': (v) => CONFIG.particleLife = v,
+                'toggle-stars': (v) => CONFIG.starsBg = v
+            };
+
+            Object.entries(toggles).forEach(([id, callback]) => {
+                const toggle = document.getElementById(id);
+                if (toggle) {
+                    toggle.addEventListener('click', () => {
+                        toggle.classList.toggle('active');
+                        callback(toggle.classList.contains('active'));
+                    });
+                }
+            });
+
+            // Presets
+            const presets = {
+                default: { speed: 1, size: 0.12, spread: 1, force: 2.5, gravity: 0, connections: 0, theme: 'fire', shape: 'heart' },
+                neon: { speed: 2, size: 0.2, spread: 1.2, force: 4, gravity: 0, connections: 2, theme: 'cyber', shape: 'sphere' },
+                calm: { speed: 0.5, size: 0.08, spread: 0.8, force: 1, gravity: 0, connections: 0, theme: 'ocean', shape: 'wave' },
+                chaos: { speed: 3, size: 0.15, spread: 1.5, force: 8, gravity: -0.5, connections: 5, theme: 'fire', shape: 'galaxy' }
+            };
+
+            document.querySelectorAll('.preset-btn').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    const p = presets[btn.dataset.preset];
+                    if (!p) return;
+
+                    CONFIG.speed = p.speed;
+                    CONFIG.particleSize = p.size;
+                    CONFIG.spread = p.spread;
+                    CONFIG.mouseForce = p.force;
+                    CONFIG.gravity = p.gravity;
+                    CONFIG.maxConnections = p.connections;
+                    CONFIG.currentTheme = p.theme;
+                    CONFIG.currentShape = p.shape;
+
+                    // Update UI
+                    document.getElementById('speed-slider').value = p.speed;
+                    document.getElementById('speed-value').textContent = p.speed;
+                    document.getElementById('size-slider').value = p.size;
+                    document.getElementById('size-value').textContent = p.size;
+                    document.getElementById('spread-slider').value = p.spread;
+                    document.getElementById('spread-value').textContent = p.spread;
+                    document.getElementById('force-slider').value = p.force;
+                    document.getElementById('force-value').textContent = p.force;
+                    document.getElementById('gravity-slider').value = p.gravity;
+                    document.getElementById('gravity-value').textContent = p.gravity;
+                    document.getElementById('connections-slider').value = p.connections;
+                    document.getElementById('connections-value').textContent = p.connections;
+
+                    document.querySelectorAll('.color-dot').forEach(d => d.classList.remove('active'));
+                    document.querySelector(`.color-dot[data-theme="${p.theme}"]`).classList.add('active');
+                    document.querySelectorAll('.shape-btn').forEach(b => b.classList.remove('active'));
+                    document.querySelector(`.shape-btn[data-shape="${p.shape}"]`).classList.add('active');
+
+                    connectionLines.visible = p.connections > 0;
+                    applyTheme();
+                    setTargets(document.getElementById('text-input').value);
+                });
+            });
+
+            // Action buttons
+            document.getElementById('btn-explode').addEventListener('click', () => {
+                for (let i = 0; i < CONFIG.particleCount; i++) {
+                    velocities[i*3] = (Math.random() - 0.5) * 50;
+                    velocities[i*3+1] = (Math.random() - 0.5) * 50;
+                    velocities[i*3+2] = (Math.random() - 0.5) * 50;
+                }
+                // Flash effect
+                const flash = document.createElement('div');
+                flash.style.cssText = 'position:fixed;inset:0;background:white;opacity:0.3;pointer-events:none;transition:opacity 0.5s;z-index:999';
+                document.body.appendChild(flash);
+                setTimeout(() => flash.style.opacity = '0', 50);
+                setTimeout(() => flash.remove(), 550);
+            });
+
+            document.getElementById('btn-screenshot').addEventListener('click', () => {
+                renderer.render(scene, camera);
+                const link = document.createElement('a');
+                link.download = `particle-system-${Date.now()}.png`;
+                link.href = renderer.domElement.toDataURL('image/png');
+                link.click();
+            });
+
+            document.getElementById('btn-random').addEventListener('click', () => {
+                const shapes = Object.keys(SHAPES);
+                const themes = Object.keys(THEMES).filter(t => t !== 'custom');
+                CONFIG.currentShape = shapes[Math.floor(Math.random() * shapes.length)];
+                CONFIG.currentTheme = themes[Math.floor(Math.random() * themes.length)];
+                CONFIG.speed = 0.5 + Math.random() * 2;
+                CONFIG.particleSize = 0.05 + Math.random() * 0.15;
+                
+                document.querySelectorAll('.shape-btn').forEach(b => b.classList.toggle('active', b.dataset.shape === CONFIG.currentShape));
+                document.querySelectorAll('.color-dot:not(.custom)').forEach(d => d.classList.toggle('active', d.dataset.theme === CONFIG.currentTheme));
+                
+                particles.material.size = CONFIG.particleSize;
+                applyTheme();
+                setTargets(document.getElementById('text-input').value);
+            });
+
+            document.getElementById('btn-export').addEventListener('click', () => {
+                const data = {
+                    config: CONFIG,
+                    text: document.getElementById('text-input').value,
+                    customColors: [color1.value, color2.value, color3.value]
+                };
+                const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+                const url = URL.createObjectURL(blob);
+                const link = document.createElement('a');
+                link.href = url;
+                link.download = `particle-preset-${Date.now()}.json`;
+                link.click();
+                URL.revokeObjectURL(url);
+            });
+
+            document.getElementById('btn-import').addEventListener('click', () => {
+                const input = document.createElement('input');
+                input.type = 'file';
+                input.accept = '.json';
+                input.onchange = (e) => {
+                    const file = e.target.files[0];
+                    if (!file) return;
+                    const reader = new FileReader();
+                    reader.onload = (event) => {
+                        try {
+                            const data = JSON.parse(event.target.result);
+                            Object.assign(CONFIG, data.config);
+                            if (data.customColors) {
+                                color1.value = data.customColors[0];
+                                color2.value = data.customColors[1];
+                                color3.value = data.customColors[2];
+                                THEMES.custom = [hexToRgb(color1.value), hexToRgb(color2.value), hexToRgb(color3.value)];
+                            }
+                            document.getElementById('text-input').value = data.text || '';
+                            
+                            // Update all UI
+                            document.getElementById('speed-slider').value = CONFIG.speed;
+                            document.getElementById('size-slider').value = CONFIG.particleSize;
+                            document.getElementById('spread-slider').value = CONFIG.spread;
+                            document.getElementById('force-slider').value = CONFIG.mouseForce;
+                            document.getElementById('gravity-slider').value = CONFIG.gravity;
+                            
+                            particles.material.size = CONFIG.particleSize;
+                            applyTheme();
+                            setTargets(data.text || '');
+                        } catch (err) {
+                            alert('Invalid preset file');
+                        }
+                    };
+                    reader.readAsText(file);
+                };
+                input.click();
+            });
+
+            document.getElementById('btn-reset').addEventListener('click', () => {
+                location.reload();
+            });
+        }
+
+        function updateParticleType() {
+            // This would require shader modifications for different types
+            // For now, we keep points but could extend to lines/triangles
+            particles.material.size = CONFIG.particleSize * (CONFIG.particleType === 'lines' ? 0.5 : 1);
+        }
+
+        // Start
+        init();
+    </script>
+</body>
+</html>
