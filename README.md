@@ -2,7 +2,7 @@
 
 A high-performance, feature-rich 3D particle morphing system with audio visualization, physics simulation, and extensive customization options. Built with Three.js and optimized for OLED displays with true black backgrounds.
 
-![Particle System](screenshot.png)
+![Particle System](Screenshot.png)
 
 ## ✨ Features
 
